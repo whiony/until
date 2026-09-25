@@ -1,0 +1,14 @@
+/node_modules
+/dist
+/.next
+/.vinext
+/.wrangler
+/.sites-runtime
+.env*
+*.tsbuildinfo
+next-env.d.ts
+/test-results
+/playwright-report
+.DS_Store
+
+/public/ocr/

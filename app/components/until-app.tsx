@@ -1,0 +1,1073 @@
+"use client";
+import { useEffect, useState } from "react";
+import Link from "next/link";
+import {
+  Plus,
+  Clock3,
+  Grid2X2,
+  History,
+  Settings2,
+  Search,
+  ArrowUpRight,
+  Check,
+  PackageOpen,
+  Trash2,
+  LayoutList,
+  Download,
+  BellOff,
+  Sun,
+  CalendarDays,
+  WifiOff,
+} from "lucide-react";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Dialog,
+  DialogContent,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
+import { Empty, EmptyTitle, EmptyDescription } from "@/components/ui/empty";
+import { Toaster } from "@/components/ui/sonner";
+import { toast } from "sonner";
+import { Choice, Check as CheckField } from "./until-controls";
+import { Photo } from "./until-photo";
+import { Editor, type EditorValue } from "./until-editor";
+import {
+  emptyRecords,
+  today,
+  deadline,
+  daysLeft,
+  countdown,
+  urgency,
+  inSoon,
+  completeUnit,
+  openUnit,
+  type Records,
+  type Item,
+  type Product,
+} from "@/lib/until/domain";
+import {
+  readRecords,
+  mutate,
+  syncRecords,
+  exportRecords,
+  type SyncState,
+} from "@/lib/until/repository";
+import { notificationService } from "@/lib/until/notifications";
+type View = "soon" | "all" | "history" | "settings";
+export default function UntilApp() {
+  const [records, setRecords] = useState<Records>(emptyRecords);
+  const [ready, setReady] = useState(false);
+  const [loadError, setLoadError] = useState("");
+  const [view, setView] = useState<View>("soon");
+  const [now, setNow] = useState(today);
+  const [sync, setSync] = useState<SyncState>("pending");
+  const [online, setOnline] = useState(true);
+  const [search, setSearch] = useState("");
+  const [category, setCategory] = useState("any");
+  const [location, setLocation] = useState("any");
+  const [status, setStatus] = useState("active");
+  const [sort, setSort] = useState("soonest");
+  const [list, setList] = useState(false);
+  const [editor, setEditor] = useState<{
+    item?: Item;
+    product?: Product;
+  } | null>(null);
+  const [detail, setDetail] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  async function refresh() {
+    try {
+      setRecords(await readRecords());
+      setReady(true);
+      setLoadError("");
+    } catch {
+      setLoadError(
+        "Until could not open device storage. Allow browser storage and reload; your entries have not been replaced.",
+      );
+    }
+  }
+  async function synchronize() {
+    setSync(await syncRecords());
+  }
+  useEffect(() => {
+    queueMicrotask(() => {
+      void refresh();
+      setOnline(navigator.onLine);
+    });
+    if ("serviceWorker" in navigator)
+      navigator.serviceWorker
+        .register("/sw.js")
+        .catch(() =>
+          toast.error("Offline installation is unavailable in this browser."),
+        );
+    const tick = () => {
+      setNow(today());
+      setOnline(navigator.onLine);
+      refresh();
+      synchronize();
+    };
+    window.addEventListener("online", tick);
+    window.addEventListener("offline", tick);
+    window.addEventListener("focus", tick);
+    const id = setInterval(tick, 30000);
+    queueMicrotask(() => {
+      void synchronize();
+    });
+    return () => {
+      clearInterval(id);
+      window.removeEventListener("online", tick);
+      window.removeEventListener("offline", tick);
+      window.removeEventListener("focus", tick);
+    };
+  }, []);
+  async function change(
+    fn: (r: Records) => void,
+    photos: Record<string, Blob> = {},
+  ) {
+    setRecords(await mutate(fn, photos));
+    setSync("pending");
+    void synchronize();
+  }
+  async function save(v: EditorValue) {
+    await change((r) => {
+      const existing = r.products.find((p) => p.id === v.product.id);
+      if (existing) Object.assign(existing, v.product);
+      else r.products.push(v.product);
+      const item = r.items.find((i) => i.id === v.item.id);
+      if (v.editing) {
+        if (!item) throw Error("Item no longer exists.");
+        if (item.updatedAt !== editor?.item?.updatedAt)
+          throw Error(
+            "This item changed in another window. Close and reopen it before editing.",
+          );
+        Object.assign(item, v.item);
+      } else r.items.push(v.item);
+    }, v.photos);
+    toast.success(v.editing ? "Changes saved" : "Added to your shelf");
+  }
+  async function action(fn: (r: Records) => void, message: string) {
+    setBusy(true);
+    try {
+      await change(fn);
+      toast.success(message);
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+  const active = records.items.filter((i) => i.status === "active");
+  const soon = active.filter((i) => inSoon(i, records.settings.soonDays, now));
+  const expired = active.filter(
+    (i) => deadline(i).date && daysLeft(deadline(i).date, now) < 0,
+  );
+  const undated = active.filter((i) => !deadline(i).date);
+  const products = new Map(records.products.map((p) => [p.id, p]));
+  const match = (i: Item) => {
+    const p = products.get(i.productId);
+    return (
+      p &&
+      (!search ||
+        `${p.name} ${p.brand} ${p.barcode} ${i.notes}`
+          .toLowerCase()
+          .includes(search.toLowerCase())) &&
+      (category === "any" || p.category === category) &&
+      (location === "any" || i.location === location)
+    );
+  };
+  const order = (items: Item[]) =>
+    items
+      .filter(match)
+      .sort((a, b) =>
+        sort === "name"
+          ? products
+              .get(a.productId)!
+              .name.localeCompare(products.get(b.productId)!.name)
+          : sort === "added"
+            ? b.createdAt.localeCompare(a.createdAt)
+            : sort === "opened"
+              ? b.openedDate.localeCompare(a.openedDate)
+              : (deadline(a).date || "9999").localeCompare(
+                  deadline(b).date || "9999",
+                ),
+      );
+  function cards(items: Item[]) {
+    return (
+      <div className={`cards ${list ? "as-list" : ""}`}>
+        {order(items).map((i) => {
+          const p = products.get(i.productId)!;
+          return (
+            <article
+              className={`item-card ${urgency(i, records.settings.soonDays, now)}`}
+              key={i.id}
+            >
+              <button
+                className="card-main"
+                onClick={() => setDetail(i.id)}
+                aria-label={`View ${p.name}`}
+              >
+                <Photo id={p.photoId} category={p.category} name={p.name} />
+                <div className="card-copy">
+                  <div className="eyebrow">
+                    {p.category} <span>· {i.location || "No location"}</span>
+                  </div>
+                  <h3>{p.name}</h3>
+                  <p className="muted">
+                    {[p.brand, p.size].filter(Boolean).join(" · ") ||
+                      `${i.quantity} ${i.quantity === 1 ? "unit" : "units"} on your shelf`}
+                  </p>
+                  <div className="countdown">
+                    <Clock3 size={17} />
+                    {i.status === "active"
+                      ? countdown(i, now)
+                      : i.status === "used"
+                        ? "Used"
+                        : "Discarded"}
+                  </div>
+                  <p className="date-caption">
+                    {deadline(i).date || "Add a date when you have it"}
+                    {i.openedDate ? " · Opened" : ""}
+                  </p>
+                </div>
+                <ArrowUpRight className="card-arrow" size={19} />
+              </button>
+              <div className="card-bottom">
+                <span>
+                  ×{i.quantity} {i.openedDate ? "opened" : "unopened"}
+                </span>
+                {i.status === "active" ? (
+                  <button
+                    disabled={busy}
+                    onClick={() =>
+                      action(
+                        (r) => completeUnit(r, i.id, "used"),
+                        "One unit marked used",
+                      )
+                    }
+                  >
+                    <Check size={16} /> Used one
+                  </button>
+                ) : (
+                  <button onClick={() => setEditor({ product: p })}>
+                    <Plus size={16} /> Add again
+                  </button>
+                )}
+              </div>
+            </article>
+          );
+        })}
+      </div>
+    );
+  }
+  const selected = records.items.find((i) => i.id === detail);
+  const selectedProduct = selected && products.get(selected.productId);
+  return (
+    <>
+      <Toaster position="top-center" />
+      <div className="app-shell">
+        <header className="topbar">
+          <Link className="brand" href="/" aria-label="Until home">
+            <span className="brand-mark">u</span>until
+            <span className="brand-period">.</span>
+          </Link>
+          <span className="desktop-note">A little less forgotten.</span>
+          <div className="top-actions">
+            <span className="sync-status">
+              {!online ? (
+                <>
+                  <WifiOff size={14} /> Offline · saved on device
+                </>
+              ) : sync === "saved" ? (
+                "Saved on this device"
+              ) : sync === "unavailable" ? (
+                "On device · remote retry pending"
+              ) : (
+                "Saving remotely…"
+              )}
+            </span>
+            <button
+              className="primary desktop-add"
+              onClick={() => setEditor({})}
+              disabled={!ready}
+            >
+              <Plus /> Add item
+            </button>
+          </div>
+        </header>
+        <div className="workspace">
+          <aside className="rail">
+            <p className="eyebrow">YOUR EVERYDAY SHELF</p>
+            <Tabs
+              value={view}
+              onValueChange={(v) => {
+                setView(v as View);
+                setSearch("");
+                setCategory("any");
+                setLocation("any");
+                setSort("soonest");
+              }}
+              orientation="vertical"
+            >
+              <TabsList className="nav-list">
+                <TabsTrigger value="soon">
+                  <Clock3 /> Soon <span>{soon.length}</span>
+                </TabsTrigger>
+                <TabsTrigger value="all">
+                  <Grid2X2 /> All items{" "}
+                  <span>{active.reduce((n, i) => n + i.quantity, 0)}</span>
+                </TabsTrigger>
+                <TabsTrigger value="history">
+                  <History /> History
+                </TabsTrigger>
+                <TabsTrigger value="settings">
+                  <Settings2 /> Settings
+                </TabsTrigger>
+              </TabsList>
+            </Tabs>
+            <div className="rail-bottom">
+              <div className="tiny-sun">
+                <Sun />
+              </div>
+              <p>
+                Good things.
+                <br />
+                Better timing.
+              </p>
+              <small>
+                Your shelf, a little more
+                <br />
+                under control.
+              </small>
+            </div>
+          </aside>
+          <main>
+            {loadError ? (
+              <div role="alert" className="error">
+                {loadError}
+                <button onClick={refresh}>Try again</button>
+              </div>
+            ) : !ready ? (
+              <p role="status">Opening your shelf…</p>
+            ) : view === "settings" ? (
+              <Settings
+                records={records}
+                onChange={change}
+                sync={sync}
+                retry={synchronize}
+              />
+            ) : (
+              <>
+                <div className="page-heading">
+                  <div>
+                    <p className="eyebrow">
+                      {new Date(`${now}T12:00:00`).toLocaleDateString("en", {
+                        weekday: "long",
+                        month: "long",
+                        day: "numeric",
+                      })}
+                    </p>
+                    <h1>
+                      {view === "soon"
+                        ? "A little heads-up."
+                        : view === "all"
+                          ? "Everything, in its place."
+                          : "Made room for more."}
+                    </h1>
+                    <p>
+                      {view === "soon"
+                        ? `What’s coming up in the next ${records.settings.soonDays} days.`
+                        : view === "all"
+                          ? "One calm place for everything with a date."
+                          : "The things you’ve used and let go of."}
+                    </p>
+                  </div>
+                  <div className="heading-stamp">
+                    <CalendarDays strokeWidth={1.25} />
+                  </div>
+                </div>
+                {view === "soon" && (
+                  <div className="summary-strip">
+                    <div>
+                      <strong>
+                        {soon.reduce((n, i) => n + i.quantity, 0)}
+                      </strong>
+                      <span>to keep an eye on</span>
+                    </div>
+                    <div>
+                      <strong>
+                        {active.reduce((n, i) => n + i.quantity, 0)}
+                      </strong>
+                      <span>items on your shelf</span>
+                    </div>
+                    <button
+                      onClick={() => {
+                        setView("all");
+                        setLocation("Fridge");
+                      }}
+                    >
+                      <span>Check the fridge</span>
+                      <ArrowUpRight size={19} />
+                    </button>
+                  </div>
+                )}
+                <div className="tools">
+                  <div className="search">
+                    <Search size={19} />
+                    <input
+                      aria-label="Search items"
+                      placeholder="Find something on your shelf…"
+                      value={search}
+                      onChange={(e) => setSearch(e.target.value)}
+                    />
+                  </div>
+                  <div className="filter-row">
+                    <Choice
+                      label="Location filter"
+                      value={location}
+                      onChange={setLocation}
+                      options={[
+                        { value: "any", label: "All locations" },
+                        ...[
+                          ...new Set(records.items.map((i) => i.location)),
+                        ].filter(Boolean),
+                      ]}
+                    />
+                    <Choice
+                      label="Category filter"
+                      value={category}
+                      onChange={setCategory}
+                      options={[
+                        { value: "any", label: "All categories" },
+                        ...[
+                          ...new Set(records.products.map((p) => p.category)),
+                        ].filter(Boolean),
+                      ]}
+                    />
+                    {view === "all" && (
+                      <Choice
+                        label="Status filter"
+                        value={status}
+                        onChange={setStatus}
+                        options={[
+                          "active",
+                          "opened",
+                          "unopened",
+                          "needs a date",
+                          "used",
+                          "discarded",
+                        ]}
+                      />
+                    )}
+                    <Choice
+                      label="Sort items"
+                      value={sort}
+                      onChange={setSort}
+                      options={[
+                        { value: "soonest", label: "Soonest first" },
+                        { value: "added", label: "Recently added" },
+                        { value: "opened", label: "Recently opened" },
+                        { value: "name", label: "Name A–Z" },
+                      ]}
+                    />
+                    <button
+                      className="icon-button"
+                      aria-label={list ? "Show grid" : "Show list"}
+                      onClick={() => setList(!list)}
+                    >
+                      {list ? <Grid2X2 /> : <LayoutList />}
+                    </button>
+                  </div>
+                </div>
+                {view === "soon" ? (
+                  <>
+                    <div className="section-heading">
+                      <h2>Use a little sooner</h2>
+                      <span className="pill">
+                        NEXT {records.settings.soonDays} DAYS
+                      </span>
+                    </div>
+                    {order(soon).length ? (
+                      cards(soon)
+                    ) : (
+                      <Empty>
+                        <Sun size={36} />
+                        <EmptyTitle>
+                          {active.length
+                            ? "A little breathing room."
+                            : "A fresh start for your shelf."}
+                        </EmptyTitle>
+                        <EmptyDescription>
+                          {active.length
+                            ? "Nothing matches in the upcoming window. Try other filters or check All items."
+                            : "Add your first item and we’ll keep the important dates in view."}
+                        </EmptyDescription>
+                        <button
+                          className="primary"
+                          onClick={() => setEditor({})}
+                        >
+                          <Plus size={18} /> Add an item
+                        </button>
+                      </Empty>
+                    )}
+                    {order(expired).length > 0 && (
+                      <section className="expired-section">
+                        <div className="section-heading">
+                          <h2>Past the recorded date</h2>
+                          <span className="pill">
+                            {order(expired).length} GROUPS
+                          </span>
+                        </div>
+                        <p className="muted">
+                          Best-before dates describe quality, not an automatic
+                          safety cutoff.
+                        </p>
+                        {cards(expired)}
+                      </section>
+                    )}
+                    {order(undated).length > 0 && (
+                      <section className="undated-section">
+                        <h2>
+                          Needs a date <span>{order(undated).length}</span>
+                        </h2>
+                        <p className="muted">
+                          A small reminder to check the label.
+                        </p>
+                        {cards(undated)}
+                      </section>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    <div className="section-heading">
+                      <h2>
+                        {view === "history" ? "Your history" : "Your shelf"}
+                      </h2>
+                      <span>
+                        {
+                          order(
+                            records.items.filter((i) =>
+                              view === "history"
+                                ? i.status !== "active"
+                                : status === "opened"
+                                  ? i.status === "active" && !!i.openedDate
+                                  : status === "unopened"
+                                    ? i.status === "active" && !i.openedDate
+                                    : status === "needs a date"
+                                      ? i.status === "active" &&
+                                        !deadline(i).date
+                                      : i.status === status,
+                            ),
+                          ).length
+                        }{" "}
+                        groups
+                      </span>
+                    </div>
+                    {(() => {
+                      const items = records.items.filter((i) =>
+                        view === "history"
+                          ? i.status !== "active"
+                          : status === "opened"
+                            ? i.status === "active" && !!i.openedDate
+                            : status === "unopened"
+                              ? i.status === "active" && !i.openedDate
+                              : status === "needs a date"
+                                ? i.status === "active" && !deadline(i).date
+                                : i.status === status,
+                      );
+                      return order(items).length ? (
+                        cards(items)
+                      ) : (
+                        <Empty>
+                          <PackageOpen size={36} />
+                          <EmptyTitle>
+                            {view === "history"
+                              ? "Your history starts here."
+                              : "Nothing here just yet."}
+                          </EmptyTitle>
+                          <EmptyDescription>
+                            {view === "history"
+                              ? "Used and discarded items will appear here, ready to add again."
+                              : "Try clearing your filters, or add something to your shelf."}
+                          </EmptyDescription>
+                          <button
+                            onClick={() => {
+                              setSearch("");
+                              setCategory("any");
+                              setLocation("any");
+                              setStatus("active");
+                            }}
+                          >
+                            Clear filters
+                          </button>
+                        </Empty>
+                      );
+                    })()}
+                  </>
+                )}
+                <footer className="page-footer">
+                  <span>Keep what matters in sight.</span>
+                  <button onClick={() => setView("settings")}>
+                    Storage & privacy <ArrowUpRight size={14} />
+                  </button>
+                </footer>
+              </>
+            )}
+          </main>
+        </div>
+        <nav className="mobile-nav" aria-label="Main navigation">
+          <button
+            aria-current={view === "soon" ? "page" : undefined}
+            onClick={() => setView("soon")}
+          >
+            <Clock3 />
+            Soon
+          </button>
+          <button
+            aria-current={view === "all" ? "page" : undefined}
+            onClick={() => setView("all")}
+          >
+            <Grid2X2 />
+            All
+          </button>
+          <button
+            className="mobile-plus"
+            disabled={!ready}
+            onClick={() => setEditor({})}
+          >
+            <Plus />
+            <span>Add</span>
+          </button>
+          <button
+            aria-current={view === "history" ? "page" : undefined}
+            onClick={() => setView("history")}
+          >
+            <History />
+            History
+          </button>
+          <button
+            aria-current={view === "settings" ? "page" : undefined}
+            onClick={() => setView("settings")}
+          >
+            <Settings2 />
+            Settings
+          </button>
+        </nav>
+      </div>
+      {editor && (
+        <Editor
+          records={records}
+          {...editor}
+          onClose={() => setEditor(null)}
+          onSave={save}
+        />
+      )}
+      {selected && selectedProduct && !editor && (
+        <Dialog open onOpenChange={(v) => !v && setDetail(null)}>
+          <DialogContent className="modal detail">
+            <DialogTitle>{selectedProduct.name}</DialogTitle>
+            <DialogDescription>
+              {selectedProduct.brand} · {selectedProduct.category} ·{" "}
+              {selected.location}
+            </DialogDescription>
+            <Photo
+              id={selectedProduct.photoId}
+              category={selectedProduct.category}
+              name={selectedProduct.name}
+            />
+            <h2
+              className={`detail-countdown ${urgency(selected, records.settings.soonDays, now)}`}
+            >
+              {countdown(selected, now)}
+            </h2>
+            <dl>
+              <div>
+                <dt>Printed date</dt>
+                <dd>
+                  {selected.printedDate || "Not recorded"} · {selected.dateKind}
+                </dd>
+              </div>
+              <div>
+                <dt>After-opening rule</dt>
+                <dd>
+                  {selected.rule
+                    ? `${selected.rule.amount} ${selected.rule.unit}`
+                    : "Not recorded"}
+                </dd>
+              </div>
+              <div>
+                <dt>Opened</dt>
+                <dd>{selected.openedDate || "Unopened"}</dd>
+              </div>
+              <div>
+                <dt>After-opening deadline</dt>
+                <dd>{deadline(selected).opening || "Not applicable yet"}</dd>
+              </div>
+              <div>
+                <dt>Quantity</dt>
+                <dd>
+                  {selected.quantity} · {selected.status}
+                </dd>
+              </div>
+              {selected.purchaseDate && (
+                <div>
+                  <dt>Purchased</dt>
+                  <dd>{selected.purchaseDate}</dd>
+                </div>
+              )}
+              {selectedProduct.barcode && (
+                <div>
+                  <dt>Barcode</dt>
+                  <dd>{selectedProduct.barcode}</dd>
+                </div>
+              )}
+            </dl>
+            <p className="notice">
+              {deadline(selected).date
+                ? `The ${deadline(selected).controls} controls this countdown because it is the earliest applicable date.`
+                : "Add a date to see a countdown."}
+            </p>
+            {selected.dateKind === "best before" && (
+              <p className="muted">
+                Best before is a quality date, not an automatic safety cutoff.
+              </p>
+            )}
+            {selectedProduct.category === "Medicine" && (
+              <p className="muted">
+                This is a reminder of your recorded date, not medical advice.
+              </p>
+            )}
+            {selected.notes && <p>{selected.notes}</p>}
+            {selected.packagingPhotoId && (
+              <>
+                <h3>Original packaging photo</h3>
+                <Photo
+                  id={selected.packagingPhotoId}
+                  category="Label"
+                  name="Original packaging label"
+                />
+              </>
+            )}
+            {selected.recognition && (
+              <details>
+                <summary>Confirmed label text</summary>
+                <pre>{selected.recognition.text}</pre>
+              </details>
+            )}
+            {selectedProduct.provenance && (
+              <p className="muted">
+                Product details:{" "}
+                <a
+                  href={selectedProduct.provenance.url}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  {selectedProduct.provenance.provider}
+                </a>
+                . Confirmed{" "}
+                {selectedProduct.provenance.confirmedAt.slice(0, 10)}. Open
+                Facts data: ODbL; images: CC BY-SA.
+              </p>
+            )}
+            <div className="detail-actions">
+              {selected.status === "active" && (
+                <>
+                  <button
+                    className="primary"
+                    disabled={busy}
+                    onClick={() =>
+                      action(
+                        (r) => completeUnit(r, selected.id, "used"),
+                        "One unit marked used",
+                      )
+                    }
+                  >
+                    <Check /> Used one
+                  </button>
+                  {!selected.openedDate && (
+                    <button
+                      disabled={busy}
+                      onClick={() =>
+                        action(
+                          (r) => openUnit(r, selected.id),
+                          "One unit opened today",
+                        )
+                      }
+                    >
+                      <PackageOpen /> Open one
+                    </button>
+                  )}
+                  <button
+                    disabled={busy}
+                    onClick={() =>
+                      action(
+                        (r) => completeUnit(r, selected.id, "discarded"),
+                        "One unit marked discarded",
+                      )
+                    }
+                  >
+                    <Trash2 /> Discard one
+                  </button>
+                </>
+              )}
+              <button onClick={() => setEditor({ product: selectedProduct })}>
+                <Plus /> Add another
+              </button>
+              <button
+                onClick={() =>
+                  setEditor({ product: selectedProduct, item: selected })
+                }
+              >
+                Edit details
+              </button>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
+    </>
+  );
+}
+function Settings({
+  records,
+  onChange,
+  sync,
+  retry,
+}: {
+  records: Records;
+  onChange: (fn: (r: Records) => void) => Promise<void>;
+  sync: SyncState;
+  retry: () => void;
+}) {
+  const [settings, setSettings] = useState(records.settings);
+  const [message, setMessage] = useState("");
+  const [saving, setSaving] = useState(false);
+  const n = settings.notifications;
+  return (
+    <>
+      <div className="page-heading">
+        <div>
+          <p className="eyebrow">MAKE YOURSELF AT HOME</p>
+          <h1>The little preferences.</h1>
+          <p>A shelf that fits your everyday.</p>
+        </div>
+      </div>
+      <form
+        className="settings"
+        onSubmit={async (e) => {
+          e.preventDefault();
+          setSaving(true);
+          try {
+            await onChange((r) => {
+              r.settings = settings;
+            });
+            setMessage("Preferences saved. Notifications are not active.");
+          } catch {
+            setMessage("Could not save. Please try again.");
+          } finally {
+            setSaving(false);
+          }
+        }}
+      >
+        <section>
+          <h2>Your Soon window</h2>
+          <label className="field">
+            <span>Show dates in the next (days)</span>
+            <input
+              type="number"
+              min={1}
+              max={90}
+              required
+              value={settings.soonDays}
+              onChange={(e) =>
+                setSettings({ ...settings, soonDays: e.target.valueAsNumber })
+              }
+            />
+          </label>
+        </section>
+        <section>
+          <h2>
+            <BellOff /> Gentle reminders
+          </h2>
+          <p className="notice">
+            Notifications are not active. The server still needs scheduled Web
+            Push delivery. Saving preferences does not enable alerts.
+          </p>
+          <CheckField
+            label="Daily digest when reminders become available"
+            checked={n.requested}
+            onChange={(v) =>
+              setSettings({
+                ...settings,
+                notifications: { ...n, requested: v },
+              })
+            }
+          />
+          <CheckField
+            label="Also remind me on the expiration day"
+            checked={n.expirationDay}
+            onChange={(v) =>
+              setSettings({
+                ...settings,
+                notifications: { ...n, expirationDay: v },
+              })
+            }
+          />
+          <div className="form-grid">
+            <label className="field">
+              <span>Lead time (days)</span>
+              <input
+                type="number"
+                required
+                min={0}
+                max={90}
+                value={n.leadDays}
+                onChange={(e) =>
+                  setSettings({
+                    ...settings,
+                    notifications: { ...n, leadDays: e.target.valueAsNumber },
+                  })
+                }
+              />
+            </label>
+            <label className="field">
+              <span>Digest time</span>
+              <input
+                type="time"
+                required
+                value={n.time}
+                onChange={(e) =>
+                  setSettings({
+                    ...settings,
+                    notifications: { ...n, time: e.target.value },
+                  })
+                }
+              />
+            </label>
+            <label className="field">
+              <span>Quiet hours start</span>
+              <input
+                type="time"
+                required
+                value={n.quietStart}
+                onChange={(e) =>
+                  setSettings({
+                    ...settings,
+                    notifications: { ...n, quietStart: e.target.value },
+                  })
+                }
+              />
+            </label>
+            <label className="field">
+              <span>Quiet hours end</span>
+              <input
+                type="time"
+                required
+                value={n.quietEnd}
+                onChange={(e) =>
+                  setSettings({
+                    ...settings,
+                    notifications: { ...n, quietEnd: e.target.value },
+                  })
+                }
+              />
+            </label>
+          </div>
+          <p className="muted">
+            Timezone: {n.timezone}. Dates on your shelf always use your current
+            local calendar day.
+          </p>
+          <button
+            type="button"
+            onClick={async () => {
+              try {
+                await notificationService.enable();
+              } catch (e) {
+                setMessage((e as Error).message);
+              }
+            }}
+          >
+            Check reminder availability
+          </button>
+          <p className="muted">
+            On iPhone, use Safari → Share → Add to Home Screen. Push reminders
+            require an installed Home Screen app and your permission. We will
+            only request permission when delivery is available and you choose to
+            enable it.
+          </p>
+        </section>
+        <button type="submit" className="primary" disabled={saving}>
+          {saving ? "Saving…" : "Save preferences"}
+        </button>
+        {message && (
+          <p role="status" className="notice">
+            {message}
+          </p>
+        )}
+        <section>
+          <h2>Your data belongs to you.</h2>
+          <p>
+            Your entries and photos are stored on this device, with retryable
+            remote copies when online.{" "}
+            {sync === "saved"
+              ? "There are no pending record saves."
+              : "Remote saves are pending."}
+          </p>
+          <p className="muted">
+            This version has no account recovery or cross-device sync. Remote
+            records use a random device key stored in this browser. Clearing
+            site data loses that key and access to the remote copy. JSON export
+            includes records and photo references, not the photo files.
+          </p>
+          <div className="inline">
+            <button
+              type="button"
+              onClick={() =>
+                exportRecords().catch(() =>
+                  setMessage("Export failed. Try again."),
+                )
+              }
+            >
+              <Download /> Export JSON
+            </button>
+            <button type="button" onClick={retry}>
+              Retry remote save
+            </button>
+            <button
+              type="button"
+              onClick={async () => {
+                const granted = await navigator.storage?.persist?.();
+                setMessage(
+                  granted
+                    ? "Persistent device storage granted."
+                    : "The browser manages storage automatically. Export your records regularly.",
+                );
+              }}
+            >
+              Keep device storage
+            </button>
+          </div>
+        </section>
+        <section>
+          <h2>Product data credits</h2>
+          <p>
+            Suggestions from{" "}
+            <a href="https://world.openfoodfacts.org">Open Food Facts</a>,{" "}
+            <a href="https://world.openbeautyfacts.org">Open Beauty Facts</a>,{" "}
+            <a href="https://world.openpetfoodfacts.org">Open Pet Food Facts</a>
+            , and{" "}
+            <a href="https://world.openproductsfacts.org">
+              Open Products Facts
+            </a>
+            . Database:{" "}
+            <a href="https://opendatacommons.org/licenses/odbl/1-0/">ODbL</a>;
+            contents: DbCL; product images:{" "}
+            <a href="https://creativecommons.org/licenses/by-sa/3.0/">
+              CC BY-SA
+            </a>
+            . Community suggestions can be incomplete or incorrect; confirm them
+            before saving.
+          </p>
+        </section>
+      </form>
+    </>
+  );
+}

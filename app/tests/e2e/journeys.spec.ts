@@ -1,0 +1,278 @@
+import { test, expect } from "@playwright/test";
+const localDate = (n: number) => {
+  const d = new Date();
+  d.setDate(d.getDate() + n);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+};
+test("real item lifecycle, reload, mobile layout and manual barcode fallback", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await expect(page.getByText("A fresh start for your shelf.")).toBeVisible();
+  await page.getByRole("button", { name: "Add item", exact: true }).click();
+  await page.getByLabel("Product name *").fill("Greek yogurt");
+  await page.getByLabel("Printed date", { exact: true }).fill(localDate(3));
+  await page.getByLabel("Quantity", { exact: true }).fill("3");
+  await page.getByText("After opening", { exact: true }).click();
+  await page.getByLabel("Use within after opening").fill("2");
+  await page
+    .getByRole("button", { name: "Add item", exact: true })
+    .last()
+    .click();
+  await expect(
+    page.getByRole("heading", { name: "Greek yogurt" }),
+  ).toBeVisible();
+  await page.reload();
+  await expect(
+    page.getByRole("heading", { name: "Greek yogurt" }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "View Greek yogurt" }).click();
+  await page.getByRole("button", { name: "Open one", exact: true }).click();
+  await expect(page.getByText("2 · active")).toBeVisible();
+  await expect(page.locator(".sync-status")).toHaveText("Saved on this device");
+  await page.getByRole("button", { name: "Close", exact: true }).click();
+  await expect(
+    page.getByRole("button", { name: "View Greek yogurt" }),
+  ).toHaveCount(2);
+  await page
+    .getByRole("button", { name: "Used one", exact: true })
+    .first()
+    .click();
+  await page.getByRole("tab", { name: "History" }).click();
+  await expect(
+    page.getByRole("heading", { name: "Greek yogurt" }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Add again" }).click();
+  await page.getByLabel("Printed date", { exact: true }).fill(localDate(15));
+  await page
+    .getByRole("button", { name: "Add item", exact: true })
+    .last()
+    .click();
+  await page.getByRole("tab", { name: /All items/ }).click();
+  await expect(
+    page.getByRole("button", { name: "View Greek yogurt" }),
+  ).toHaveCount(2);
+  await page.getByRole("button", { name: "Add item", exact: true }).click();
+  await page.getByLabel("Barcode", { exact: true }).fill("bad");
+  await page.getByRole("button", { name: "Look up", exact: true }).click();
+  await expect(page.getByRole("alert")).toContainText("barcode");
+  await page.getByLabel("Product name *").fill("Hand cream");
+  await page.getByText("Add the date later · keep in Needs a date").click();
+  await page
+    .getByRole("button", { name: "Add item", exact: true })
+    .last()
+    .click();
+  await page.getByRole("tab", { name: /Soon/ }).click();
+  await expect(
+    page.getByRole("heading", { name: /Needs a date/ }),
+  ).toBeVisible();
+  await expect(page.locator("[data-sonner-toast]")).toHaveCount(0, {
+    timeout: 10000,
+  });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(
+    page.getByRole("navigation", { name: "Main navigation" }),
+  ).toBeVisible();
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= window.innerWidth,
+    ),
+  ).toBe(true);
+  await page.screenshot({ path: "test-results/mobile.png", fullPage: true });
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  const nav = await page.getByRole("tab", { name: "History" }).boundingBox();
+  expect(nav!.height).toBeLessThan(60);
+  expect(nav!.y).toBeGreaterThan(100);
+  await page.screenshot({ path: "test-results/desktop.png", fullPage: true });
+});
+test("no fake notification enablement", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("tab", { name: "Settings" }).click();
+  await expect(
+    page.getByText("Notifications are not active.", { exact: false }),
+  ).toBeVisible();
+  await page
+    .getByRole("button", { name: "Check reminder availability" })
+    .click();
+  await expect(
+    page.getByRole("status").filter({ hasText: "Reminders are not available" }),
+  ).toBeVisible();
+});
+test("offline shell reload and offline edit persist", async ({
+  page,
+  context,
+}) => {
+  await page.goto("/");
+  await page.evaluate(async () => {
+    await navigator.serviceWorker.ready;
+  });
+  await expect
+    .poll(async () => page.evaluate(() => !!navigator.serviceWorker.controller))
+    .toBe(true);
+  await context.setOffline(true);
+  await page.reload();
+  await expect(page.getByText("A fresh start for your shelf.")).toBeVisible();
+  await page.getByRole("button", { name: "Add item", exact: true }).click();
+  await page.getByLabel("Product name *").fill("Offline oats");
+  await page.getByLabel("Printed date", { exact: true }).fill(localDate(2));
+  await page
+    .getByRole("button", { name: "Add item", exact: true })
+    .last()
+    .click();
+  await expect(
+    page.getByRole("heading", { name: "Offline oats" }),
+  ).toBeVisible();
+  await page.reload();
+  await expect(
+    page.getByRole("heading", { name: "Offline oats" }),
+  ).toBeVisible();
+  await context.setOffline(false);
+});
+test("remote snapshots reject stale revisions and isolate devices", async ({
+  request,
+}) => {
+  const token = crypto.randomUUID() + crypto.randomUUID();
+  const headers = { Authorization: `Bearer ${token}` };
+  const data = {
+    schemaVersion: 1,
+    revision: 2,
+    products: [],
+    items: [],
+    settings: {
+      soonDays: 20,
+      notifications: {
+        requested: false,
+        expirationDay: false,
+        leadDays: 7,
+        time: "09:00",
+        quietStart: "21:00",
+        quietEnd: "08:00",
+        timezone: "Europe/Zagreb",
+      },
+    },
+  };
+  expect((await request.put("/api/sync", { headers, data })).ok()).toBe(true);
+  expect(
+    (
+      await request.put("/api/sync", {
+        headers,
+        data: {
+          ...data,
+          revision: 1,
+          settings: { ...data.settings, soonDays: 7 },
+        },
+      })
+    ).ok(),
+  ).toBe(true);
+  expect(
+    (await (await request.get("/api/sync", { headers })).json()).settings
+      .soonDays,
+  ).toBe(20);
+  expect((await request.get("/api/sync")).status()).toBe(401);
+  expect(
+    await (
+      await request.get("/api/sync", {
+        headers: {
+          Authorization: `Bearer ${crypto.randomUUID() + crypto.randomUUID()}`,
+        },
+      })
+    ).json(),
+  ).toBe(null);
+});
+test("photo upload is durable and isolated in object storage", async ({
+  request,
+}) => {
+  const token = crypto.randomUUID() + crypto.randomUUID();
+  const id = crypto.randomUUID();
+  const headers = { Authorization: `Bearer ${token}` };
+  const image = await request.get("/icons/icon-192.png");
+  const bytes = await image.body();
+  expect(
+    (
+      await request.put(`/api/photos/${id}`, {
+        headers: { ...headers, "Content-Type": "image/png" },
+        data: bytes,
+      })
+    ).status(),
+  ).toBe(204);
+  expect(
+    await (await request.get(`/api/photos/${id}`, { headers })).body(),
+  ).toEqual(bytes);
+  expect(
+    (
+      await request.get(`/api/photos/${id}`, {
+        headers: {
+          Authorization: `Bearer ${crypto.randomUUID() + crypto.randomUUID()}`,
+        },
+      })
+    ).status(),
+  ).toBe(404);
+});
+
+test("actual photo OCR exposes text and requires confirmation", async ({
+  page,
+}) => {
+  test.setTimeout(90000);
+  await page.goto("/");
+  await page.getByRole("button", { name: "Add item", exact: true }).click();
+  await page.getByLabel("Product name *").fill("Label test");
+  await page.getByText("Photos & label recognition", { exact: true }).click();
+  await page
+    .getByLabel("Packaging photo", { exact: true })
+    .setInputFiles("tests/fixtures/label.png");
+  await expect(
+    page.getByRole("button", { name: "Read date from photo" }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Read date from photo" }).click();
+  await expect(page.getByText(/Extracted text/)).toBeVisible({
+    timeout: 75000,
+  });
+  await expect(page.getByLabel("Printed date", { exact: true })).toHaveValue(
+    "",
+  );
+  await page
+    .getByRole("button", { name: "Confirm 2027-08-12", exact: true })
+    .click();
+  await expect(page.getByLabel("Printed date", { exact: true })).toHaveValue(
+    "2027-08-12",
+  );
+  await page
+    .getByRole("button", { name: "Confirm 7 days", exact: true })
+    .click();
+  await page
+    .getByRole("button", { name: "Add item", exact: true })
+    .last()
+    .click();
+  await page.getByRole("tab", { name: /All items/ }).click();
+  await page.getByRole("button", { name: "View Label test" }).click();
+  await expect(
+    page.getByRole("img", { name: "Original packaging label" }),
+  ).toBeVisible();
+  await page.reload();
+  await page.getByRole("tab", { name: /All items/ }).click();
+  await page.getByRole("button", { name: "View Label test" }).click();
+  await expect(
+    page.getByRole("img", { name: "Original packaging label" }),
+  ).toBeVisible();
+});
+
+test("camera denial and provider failure retain manual entry", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "Add item", exact: true }).click();
+  await page.getByRole("button", { name: "Scan barcode", exact: true }).click();
+  await expect(
+    page.getByText("Camera could not start.", { exact: false }),
+  ).toBeVisible();
+  await page
+    .getByRole("button", { name: "Stop camera · enter manually" })
+    .click();
+  await page.route("**/api/lookup?*", (route) =>
+    route.fulfill({ status: 503, body: "Unavailable" }),
+  );
+  await page.getByLabel("Barcode", { exact: true }).fill("3017620422003");
+  await page.getByRole("button", { name: "Look up", exact: true }).click();
+  await expect(page.getByRole("alert")).toContainText("unavailable");
+  await expect(page.getByLabel("Product name *")).toBeEditable();
+});
