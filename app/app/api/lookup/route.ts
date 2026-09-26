@@ -1,5 +1,6 @@
 import type { Suggestion } from "@/lib/until/lookup";
 import { validBarcode } from "@/lib/until/lookup";
+import { owner, failure } from "@/lib/until/server";
 const sources = [
   ["openfoodfacts", "Food", "Open Food Facts"],
   ["openbeautyfacts", "Beauty", "Open Beauty Facts"],
@@ -9,6 +10,11 @@ const sources = [
 const cache = new Map<string, { at: number; value: Suggestion | null }>();
 let lastRequests: number[] = [];
 export async function GET(req: Request) {
+  try {
+    await owner(req);
+  } catch (error) {
+    return failure(error);
+  }
   const barcode = new URL(req.url).searchParams.get("barcode") || "";
   if (!validBarcode(barcode))
     return new Response("Invalid barcode", { status: 400 });

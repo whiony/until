@@ -1,4 +1,5 @@
 "use client";
+import { useState } from "react";
 import {
   Select,
   SelectContent,
@@ -56,5 +57,56 @@ export function Check({
       />
       <span>{label}</span>
     </label>
+  );
+}
+
+export function EditableChoice({
+  label,
+  value,
+  onChange,
+  defaults,
+  customValues,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  defaults: string[];
+  customValues: string[];
+}) {
+  const [custom, setCustom] = useState(false);
+  const values = [
+    ...new Set([...defaults, ...customValues, value].filter(Boolean)),
+  ];
+  return (
+    <div>
+      <Choice
+        label={label}
+        value={custom ? "__custom" : value || defaults[0]}
+        options={[
+          ...values,
+          { value: "__custom", label: `Add custom ${label.toLowerCase()}…` },
+        ]}
+        onChange={(v) => {
+          if (v === "__custom") {
+            setCustom(true);
+          } else {
+            setCustom(false);
+            onChange(v);
+          }
+        }}
+      />
+      {custom && (
+        <label className="field">
+          <span>Custom {label.toLowerCase()}</span>
+          <input
+            autoFocus
+            maxLength={100}
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+            placeholder={`Enter a ${label.toLowerCase()}`}
+          />
+        </label>
+      )}
+    </div>
   );
 }

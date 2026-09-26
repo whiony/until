@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import {
   Plus,
@@ -15,9 +15,6 @@ import {
   LayoutList,
   Download,
   BellOff,
-  Sun,
-  CalendarDays,
-  WifiOff,
 } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -30,10 +27,14 @@ import { Empty, EmptyTitle, EmptyDescription } from "@/components/ui/empty";
 import { Toaster } from "@/components/ui/sonner";
 import { toast } from "sonner";
 import { Choice, Check as CheckField } from "./until-controls";
+import { SyncPanel } from "./until-sync";
+import { useVisualViewport } from "./use-visual-viewport";
 import { Photo } from "./until-photo";
 import { Editor, type EditorValue } from "./until-editor";
 import {
   emptyRecords,
+  categories,
+  locations,
   today,
   deadline,
   daysLeft,
@@ -56,13 +57,13 @@ import {
 import { notificationService } from "@/lib/until/notifications";
 type View = "soon" | "all" | "history" | "settings";
 export default function UntilApp() {
+  useVisualViewport();
   const [records, setRecords] = useState<Records>(emptyRecords);
   const [ready, setReady] = useState(false);
   const [loadError, setLoadError] = useState("");
   const [view, setView] = useState<View>("soon");
   const [now, setNow] = useState(today);
   const [sync, setSync] = useState<SyncState>("pending");
-  const [online, setOnline] = useState(true);
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("any");
   const [location, setLocation] = useState("any");
@@ -75,7 +76,7 @@ export default function UntilApp() {
   } | null>(null);
   const [detail, setDetail] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  async function refresh() {
+  const refresh = useCallback(async () => {
     try {
       setRecords(await readRecords());
       setReady(true);
@@ -85,14 +86,14 @@ export default function UntilApp() {
         "Until could not open device storage. Allow browser storage and reload; your entries have not been replaced.",
       );
     }
-  }
-  async function synchronize() {
+  }, []);
+  const synchronize = useCallback(async () => {
     setSync(await syncRecords());
-  }
+    await refresh();
+  }, [refresh]);
   useEffect(() => {
     queueMicrotask(() => {
       void refresh();
-      setOnline(navigator.onLine);
     });
     if ("serviceWorker" in navigator)
       navigator.serviceWorker
@@ -102,24 +103,30 @@ export default function UntilApp() {
         );
     const tick = () => {
       setNow(today());
-      setOnline(navigator.onLine);
       refresh();
       synchronize();
     };
     window.addEventListener("online", tick);
     window.addEventListener("offline", tick);
     window.addEventListener("focus", tick);
-    const id = setInterval(tick, 30000);
+    const foreground = () => {
+      if (document.visibilityState === "visible") tick();
+    };
+    document.addEventListener("visibilitychange", foreground);
+    window.addEventListener("until-records", refresh);
+    const id = setInterval(foreground, 10000);
     queueMicrotask(() => {
       void synchronize();
     });
     return () => {
       clearInterval(id);
+      document.removeEventListener("visibilitychange", foreground);
+      window.removeEventListener("until-records", refresh);
       window.removeEventListener("online", tick);
       window.removeEventListener("offline", tick);
       window.removeEventListener("focus", tick);
     };
-  }, []);
+  }, [refresh, synchronize]);
   async function change(
     fn: (r: Records) => void,
     photos: Record<string, Blob> = {},
@@ -131,8 +138,16 @@ export default function UntilApp() {
   async function save(v: EditorValue) {
     await change((r) => {
       const existing = r.products.find((p) => p.id === v.product.id);
-      if (existing) Object.assign(existing, v.product);
-      else r.products.push(v.product);
+      if (existing) {
+        const changed =
+          JSON.stringify({ ...existing, updatedAt: "" }) !==
+          JSON.stringify({ ...v.product, updatedAt: "" });
+        if (changed && v.expectedProductVersion !== existing.updatedAt)
+          throw Error(
+            "This product changed on another device. Close and reopen before editing.",
+          );
+        if (changed) Object.assign(existing, v.product);
+      } else r.products.push(v.product);
       const item = r.items.find((i) => i.id === v.item.id);
       if (v.editing) {
         if (!item) throw Error("Item no longer exists.");
@@ -267,24 +282,18 @@ export default function UntilApp() {
       <div className="app-shell">
         <header className="topbar">
           <Link className="brand" href="/" aria-label="Until home">
-            <span className="brand-mark">u</span>until
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              className="brand-mark"
+              src="/favicon.svg"
+              width="32"
+              height="32"
+              alt=""
+            />
+            until
             <span className="brand-period">.</span>
           </Link>
-          <span className="desktop-note">A little less forgotten.</span>
           <div className="top-actions">
-            <span className="sync-status">
-              {!online ? (
-                <>
-                  <WifiOff size={14} /> Offline · saved on device
-                </>
-              ) : sync === "saved" ? (
-                "Saved on this device"
-              ) : sync === "unavailable" ? (
-                "On device · remote retry pending"
-              ) : (
-                "Saving remotely…"
-              )}
-            </span>
             <button
               className="primary desktop-add"
               onClick={() => setEditor({})}
@@ -296,7 +305,7 @@ export default function UntilApp() {
         </header>
         <div className="workspace">
           <aside className="rail">
-            <p className="eyebrow">YOUR EVERYDAY SHELF</p>
+            <p className="eyebrow">YOUR ITEMS</p>
             <Tabs
               value={view}
               onValueChange={(v) => {
@@ -324,21 +333,6 @@ export default function UntilApp() {
                 </TabsTrigger>
               </TabsList>
             </Tabs>
-            <div className="rail-bottom">
-              <div className="tiny-sun">
-                <Sun />
-              </div>
-              <p>
-                Good things.
-                <br />
-                Better timing.
-              </p>
-              <small>
-                Your shelf, a little more
-                <br />
-                under control.
-              </small>
-            </div>
           </aside>
           <main>
             {loadError ? (
@@ -357,6 +351,23 @@ export default function UntilApp() {
               />
             ) : (
               <>
+                {["unavailable", "conflict", "signed-out", "offline"].includes(
+                  sync,
+                ) && (
+                  <button
+                    className="sync-hint"
+                    onClick={() => setView("settings")}
+                  >
+                    {sync === "offline"
+                      ? "Offline · changes kept here"
+                      : sync === "conflict"
+                        ? "Sync needs review"
+                        : sync === "signed-out"
+                          ? "Sign in to sync"
+                          : "Sync paused · retrying"}{" "}
+                    <ArrowUpRight size={14} />
+                  </button>
+                )}
                 <div className="page-heading">
                   <div>
                     <p className="eyebrow">
@@ -368,48 +379,20 @@ export default function UntilApp() {
                     </p>
                     <h1>
                       {view === "soon"
-                        ? "A little heads-up."
+                        ? "Expiring soon"
                         : view === "all"
-                          ? "Everything, in its place."
-                          : "Made room for more."}
+                          ? "All items"
+                          : "History"}
                     </h1>
                     <p>
                       {view === "soon"
                         ? `What’s coming up in the next ${records.settings.soonDays} days.`
                         : view === "all"
-                          ? "One calm place for everything with a date."
-                          : "The things you’ve used and let go of."}
+                          ? `${active.reduce((sum, i) => sum + i.quantity, 0)} active items`
+                          : "Used and discarded items"}
                     </p>
                   </div>
-                  <div className="heading-stamp">
-                    <CalendarDays strokeWidth={1.25} />
-                  </div>
                 </div>
-                {view === "soon" && (
-                  <div className="summary-strip">
-                    <div>
-                      <strong>
-                        {soon.reduce((n, i) => n + i.quantity, 0)}
-                      </strong>
-                      <span>to keep an eye on</span>
-                    </div>
-                    <div>
-                      <strong>
-                        {active.reduce((n, i) => n + i.quantity, 0)}
-                      </strong>
-                      <span>items on your shelf</span>
-                    </div>
-                    <button
-                      onClick={() => {
-                        setView("all");
-                        setLocation("Fridge");
-                      }}
-                    >
-                      <span>Check the fridge</span>
-                      <ArrowUpRight size={19} />
-                    </button>
-                  </div>
-                )}
                 <div className="tools">
                   <div className="search">
                     <Search size={19} />
@@ -428,7 +411,10 @@ export default function UntilApp() {
                       options={[
                         { value: "any", label: "All locations" },
                         ...[
-                          ...new Set(records.items.map((i) => i.location)),
+                          ...new Set([
+                            ...locations,
+                            ...records.items.map((i) => i.location),
+                          ]),
                         ].filter(Boolean),
                       ]}
                     />
@@ -439,7 +425,10 @@ export default function UntilApp() {
                       options={[
                         { value: "any", label: "All categories" },
                         ...[
-                          ...new Set(records.products.map((p) => p.category)),
+                          ...new Set([
+                            ...categories,
+                            ...records.products.map((p) => p.category),
+                          ]),
                         ].filter(Boolean),
                       ]}
                     />
@@ -455,7 +444,13 @@ export default function UntilApp() {
                           "needs a date",
                           "used",
                           "discarded",
-                        ]}
+                        ].map((value) => ({
+                          value,
+                          label:
+                            value === "needs a date"
+                              ? "Needs a date"
+                              : value[0].toUpperCase() + value.slice(1),
+                        }))}
                       />
                     )}
                     <Choice
@@ -481,7 +476,7 @@ export default function UntilApp() {
                 {view === "soon" ? (
                   <>
                     <div className="section-heading">
-                      <h2>Use a little sooner</h2>
+                      <h2>Next to expire</h2>
                       <span className="pill">
                         NEXT {records.settings.soonDays} DAYS
                       </span>
@@ -490,16 +485,14 @@ export default function UntilApp() {
                       cards(soon)
                     ) : (
                       <Empty>
-                        <Sun size={36} />
+                        <PackageOpen size={30} />
                         <EmptyTitle>
-                          {active.length
-                            ? "A little breathing room."
-                            : "A fresh start for your shelf."}
+                          {active.length ? "No upcoming dates" : "No items yet"}
                         </EmptyTitle>
                         <EmptyDescription>
                           {active.length
                             ? "Nothing matches in the upcoming window. Try other filters or check All items."
-                            : "Add your first item and we’ll keep the important dates in view."}
+                            : "Add an item to track its expiration date."}
                         </EmptyDescription>
                         <button
                           className="primary"
@@ -581,8 +574,8 @@ export default function UntilApp() {
                           <PackageOpen size={36} />
                           <EmptyTitle>
                             {view === "history"
-                              ? "Your history starts here."
-                              : "Nothing here just yet."}
+                              ? "No history yet"
+                              : "No matching items"}
                           </EmptyTitle>
                           <EmptyDescription>
                             {view === "history"
@@ -604,12 +597,6 @@ export default function UntilApp() {
                     })()}
                   </>
                 )}
-                <footer className="page-footer">
-                  <span>Keep what matters in sight.</span>
-                  <button onClick={() => setView("settings")}>
-                    Storage & privacy <ArrowUpRight size={14} />
-                  </button>
-                </footer>
               </>
             )}
           </main>
@@ -845,9 +832,9 @@ function Settings({
     <>
       <div className="page-heading">
         <div>
-          <p className="eyebrow">MAKE YOURSELF AT HOME</p>
-          <h1>The little preferences.</h1>
-          <p>A shelf that fits your everyday.</p>
+          <p className="eyebrow">PREFERENCES</p>
+          <h1>Settings</h1>
+          <p>Manage reminders and account storage.</p>
         </div>
       </div>
       <form
@@ -1002,26 +989,26 @@ function Settings({
             {message}
           </p>
         )}
+        <SyncPanel state={sync} retry={retry} />
         <section>
-          <h2>Your data belongs to you.</h2>
+          <h2>Data & storage</h2>
           <p>
-            Your entries and photos are stored on this device, with retryable
-            remote copies when online.{" "}
-            {sync === "saved"
-              ? "There are no pending record saves."
-              : "Remote saves are pending."}
+            Items and photos sync with the same signed-in account. Updates are
+            checked on opening, focus, reconnect, and every 10 seconds while
+            visible. Offline changes stay on this device until they can be
+            uploaded.
           </p>
           <p className="muted">
-            This version has no account recovery or cross-device sync. Remote
-            records use a random device key stored in this browser. Clearing
-            site data loses that key and access to the remote copy. JSON export
-            includes records and photo references, not the photo files.
+            JSON export includes records and photo references, not photo files.
+            Existing device-only entries migrate when that device opens this
+            version. Recovery copies are kept if you choose a cloud version
+            after a conflict.
           </p>
           <div className="inline">
             <button
               type="button"
               onClick={() =>
-                exportRecords().catch(() =>
+                exportRecords(true).catch(() =>
                   setMessage("Export failed. Try again."),
                 )
               }
@@ -1029,7 +1016,7 @@ function Settings({
               <Download /> Export JSON
             </button>
             <button type="button" onClick={retry}>
-              Retry remote save
+              Retry sync
             </button>
             <button
               type="button"

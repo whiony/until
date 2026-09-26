@@ -25,15 +25,22 @@ export function Photo({
   useEffect(() => {
     let active = true;
     let objectUrl = "";
-    (async () => {
+    const load = async () => {
       const b = blob || (id ? await getPhoto(id) : undefined);
       if (b && active) {
+        if (objectUrl) URL.revokeObjectURL(objectUrl);
         objectUrl = URL.createObjectURL(b);
         setUrl(objectUrl);
       } else if (active) setUrl("");
-    })().catch(() => {});
+    };
+    const update = () => {
+      void load().catch(() => {});
+    };
+    update();
+    window.addEventListener("until-records", update);
     return () => {
       active = false;
+      window.removeEventListener("until-records", update);
       if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
   }, [id, blob]);

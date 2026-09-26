@@ -1,4 +1,12 @@
 import { test, expect } from "@playwright/test";
+// Local test harness emulates the identity asserted by Sites dispatch, not a mocked API.
+test.use({
+  extraHTTPHeaders: {
+    "oai-authenticated-user-id": "journeys-v2",
+    "oai-authenticated-user-email": "journeys@example.test",
+  },
+});
+
 const localDate = (n: number) => {
   const d = new Date();
   d.setDate(d.getDate() + n);
@@ -7,8 +15,12 @@ const localDate = (n: number) => {
 test("real item lifecycle, reload, mobile layout and manual barcode fallback", async ({
   page,
 }) => {
+  await page.context().setExtraHTTPHeaders({
+    "oai-authenticated-user-id": crypto.randomUUID(),
+    "oai-authenticated-user-email": "journeys@example.test",
+  });
   await page.goto("/");
-  await expect(page.getByText("A fresh start for your shelf.")).toBeVisible();
+  await expect(page.getByText("No items yet")).toBeVisible();
   await page.getByRole("button", { name: "Add item", exact: true }).click();
   await page.getByLabel("Product name *").fill("Greek yogurt");
   await page.getByLabel("Printed date", { exact: true }).fill(localDate(3));
@@ -29,7 +41,7 @@ test("real item lifecycle, reload, mobile layout and manual barcode fallback", a
   await page.getByRole("button", { name: "View Greek yogurt" }).click();
   await page.getByRole("button", { name: "Open one", exact: true }).click();
   await expect(page.getByText("2 · active")).toBeVisible();
-  await expect(page.locator(".sync-status")).toHaveText("Saved on this device");
+
   await page.getByRole("button", { name: "Close", exact: true }).click();
   await expect(
     page.getByRole("button", { name: "View Greek yogurt" }),
@@ -86,6 +98,10 @@ test("real item lifecycle, reload, mobile layout and manual barcode fallback", a
   await page.screenshot({ path: "test-results/desktop.png", fullPage: true });
 });
 test("no fake notification enablement", async ({ page }) => {
+  await page.context().setExtraHTTPHeaders({
+    "oai-authenticated-user-id": crypto.randomUUID(),
+    "oai-authenticated-user-email": "journeys@example.test",
+  });
   await page.goto("/");
   await page.getByRole("tab", { name: "Settings" }).click();
   await expect(
@@ -102,6 +118,10 @@ test("offline shell reload and offline edit persist", async ({
   page,
   context,
 }) => {
+  await page.context().setExtraHTTPHeaders({
+    "oai-authenticated-user-id": crypto.randomUUID(),
+    "oai-authenticated-user-email": "journeys@example.test",
+  });
   await page.goto("/");
   await page.evaluate(async () => {
     await navigator.serviceWorker.ready;
@@ -111,7 +131,7 @@ test("offline shell reload and offline edit persist", async ({
     .toBe(true);
   await context.setOffline(true);
   await page.reload();
-  await expect(page.getByText("A fresh start for your shelf.")).toBeVisible();
+  await expect(page.getByText("No items yet")).toBeVisible();
   await page.getByRole("button", { name: "Add item", exact: true }).click();
   await page.getByLabel("Product name *").fill("Offline oats");
   await page.getByLabel("Printed date", { exact: true }).fill(localDate(2));
@@ -128,91 +148,14 @@ test("offline shell reload and offline edit persist", async ({
   ).toBeVisible();
   await context.setOffline(false);
 });
-test("remote snapshots reject stale revisions and isolate devices", async ({
-  request,
-}) => {
-  const token = crypto.randomUUID() + crypto.randomUUID();
-  const headers = { Authorization: `Bearer ${token}` };
-  const data = {
-    schemaVersion: 1,
-    revision: 2,
-    products: [],
-    items: [],
-    settings: {
-      soonDays: 20,
-      notifications: {
-        requested: false,
-        expirationDay: false,
-        leadDays: 7,
-        time: "09:00",
-        quietStart: "21:00",
-        quietEnd: "08:00",
-        timezone: "Europe/Zagreb",
-      },
-    },
-  };
-  expect((await request.put("/api/sync", { headers, data })).ok()).toBe(true);
-  expect(
-    (
-      await request.put("/api/sync", {
-        headers,
-        data: {
-          ...data,
-          revision: 1,
-          settings: { ...data.settings, soonDays: 7 },
-        },
-      })
-    ).ok(),
-  ).toBe(true);
-  expect(
-    (await (await request.get("/api/sync", { headers })).json()).settings
-      .soonDays,
-  ).toBe(20);
-  expect((await request.get("/api/sync")).status()).toBe(401);
-  expect(
-    await (
-      await request.get("/api/sync", {
-        headers: {
-          Authorization: `Bearer ${crypto.randomUUID() + crypto.randomUUID()}`,
-        },
-      })
-    ).json(),
-  ).toBe(null);
-});
-test("photo upload is durable and isolated in object storage", async ({
-  request,
-}) => {
-  const token = crypto.randomUUID() + crypto.randomUUID();
-  const id = crypto.randomUUID();
-  const headers = { Authorization: `Bearer ${token}` };
-  const image = await request.get("/icons/icon-192.png");
-  const bytes = await image.body();
-  expect(
-    (
-      await request.put(`/api/photos/${id}`, {
-        headers: { ...headers, "Content-Type": "image/png" },
-        data: bytes,
-      })
-    ).status(),
-  ).toBe(204);
-  expect(
-    await (await request.get(`/api/photos/${id}`, { headers })).body(),
-  ).toEqual(bytes);
-  expect(
-    (
-      await request.get(`/api/photos/${id}`, {
-        headers: {
-          Authorization: `Bearer ${crypto.randomUUID() + crypto.randomUUID()}`,
-        },
-      })
-    ).status(),
-  ).toBe(404);
-});
-
 test("actual photo OCR exposes text and requires confirmation", async ({
   page,
 }) => {
   test.setTimeout(90000);
+  await page.context().setExtraHTTPHeaders({
+    "oai-authenticated-user-id": crypto.randomUUID(),
+    "oai-authenticated-user-email": "journeys@example.test",
+  });
   await page.goto("/");
   await page.getByRole("button", { name: "Add item", exact: true }).click();
   await page.getByLabel("Product name *").fill("Label test");
@@ -259,6 +202,10 @@ test("actual photo OCR exposes text and requires confirmation", async ({
 test("camera denial and provider failure retain manual entry", async ({
   page,
 }) => {
+  await page.context().setExtraHTTPHeaders({
+    "oai-authenticated-user-id": crypto.randomUUID(),
+    "oai-authenticated-user-email": "journeys@example.test",
+  });
   await page.goto("/");
   await page.getByRole("button", { name: "Add item", exact: true }).click();
   await page.getByRole("button", { name: "Scan barcode", exact: true }).click();

@@ -1,4 +1,10 @@
-import { database, owner, failure } from "@/lib/until/server";
+import {
+  database,
+  owner,
+  failure,
+  sameOrigin,
+  limitedBody,
+} from "@/lib/until/server";
 import { z } from "zod";
 import { validateItem } from "@/lib/until/domain";
 const date = z.string().max(10),
@@ -50,7 +56,7 @@ const item = z.object({
 });
 const schema = z.object({
   schemaVersion: z.literal(1),
-  revision: z.number().int().min(1),
+  revision: z.number().int().min(0),
   products: z.array(product).max(10000),
   items: z.array(item).max(30000),
   settings: z.object({
@@ -68,14 +74,33 @@ const schema = z.object({
 });
 export async function PUT(req: Request) {
   try {
+    sameOrigin(req);
     const key = await owner(req);
-    const text = await req.text();
-    if (text.length > 8_000_000)
-      return new Response("Too large", { status: 413 });
-    const parsed = schema.safeParse(JSON.parse(text));
+    const expected = Number(req.headers.get("If-Match"));
+    if (
+      !req.headers.has("If-Match") ||
+      !Number.isSafeInteger(expected) ||
+      expected < 0
+    )
+      return new Response("Version required", { status: 400 });
+    let json: unknown;
+    try {
+      json = JSON.parse(
+        new TextDecoder().decode(await limitedBody(req, 8_000_000)),
+      );
+    } catch (e) {
+      if (e instanceof Error && e.message === "Too large") throw e;
+      return new Response("Invalid JSON", { status: 400 });
+    }
+    const parsed = schema.safeParse(json);
     if (!parsed.success)
-      return Response.json({ error: "Invalid records" }, { status: 400 });
+      return new Response("Invalid records", { status: 400 });
     const r = parsed.data;
+    if (
+      new Set(r.products.map((p) => p.id)).size !== r.products.length ||
+      new Set(r.items.map((i) => i.id)).size !== r.items.length
+    )
+      return new Response("Duplicate IDs", { status: 400 });
     try {
       for (const i of r.items) {
         validateItem(i, null);
@@ -85,13 +110,27 @@ export async function PUT(req: Request) {
     } catch {
       return new Response("Invalid item", { status: 400 });
     }
-    await database()
-      .prepare(
-        "INSERT INTO device_records (owner,revision,payload,updated_at) VALUES (?,?,?,?) ON CONFLICT(owner) DO UPDATE SET revision=excluded.revision,payload=excluded.payload,updated_at=excluded.updated_at WHERE excluded.revision>device_records.revision",
-      )
-      .bind(key, r.revision, JSON.stringify(r), new Date().toISOString())
-      .run();
-    return Response.json({ saved: true });
+    // Atomic compare-and-swap. A stale device must pull and merge, never overwrite.
+    const result =
+      expected === 0
+        ? await database()
+            .prepare(
+              "INSERT INTO account_records (owner,revision,payload,updated_at) VALUES (?,1,?,?) ON CONFLICT(owner) DO NOTHING",
+            )
+            .bind(key, JSON.stringify(r), new Date().toISOString())
+            .run()
+        : await database()
+            .prepare(
+              "UPDATE account_records SET revision=revision+1,payload=?,updated_at=? WHERE owner=? AND revision=?",
+            )
+            .bind(JSON.stringify(r), new Date().toISOString(), key, expected)
+            .run();
+    if (!result.meta.changes)
+      return new Response("Version changed", { status: 409 });
+    return Response.json(
+      { account: key, revision: expected + 1 },
+      { headers: { "Cache-Control": "no-store" } },
+    );
   } catch (e) {
     return failure(e);
   }
@@ -100,15 +139,17 @@ export async function GET(req: Request) {
   try {
     const key = await owner(req);
     const row = await database()
-      .prepare("SELECT payload FROM device_records WHERE owner=?")
+      .prepare("SELECT payload,revision FROM account_records WHERE owner=?")
       .bind(key)
-      .first<{ payload: string }>();
-    return new Response(row?.payload || "null", {
-      headers: {
-        "Content-Type": "application/json",
-        "Cache-Control": "no-store",
+      .first<{ payload: string; revision: number }>();
+    return Response.json(
+      {
+        account: key,
+        revision: row?.revision || 0,
+        records: row ? JSON.parse(row.payload) : null,
       },
-    });
+      { headers: { "Cache-Control": "no-store", Vary: "Cookie" } },
+    );
   } catch (e) {
     return failure(e);
   }

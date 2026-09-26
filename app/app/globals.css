@@ -1182,3 +1182,579 @@ input[type="time"] {
   height: 49px !important;
   flex: 0 0 auto !important;
 }
+/* Compact account-sync edition */
+:root {
+  --background: #f5f7f3;
+  --foreground: #203b35;
+  --primary: #214d43;
+  --muted: #edf1e9;
+  --muted-foreground: #596a61;
+  --border: #dce3da;
+  --accent: #e8f0d4;
+  --ring: #557665;
+}
+body {
+  font-family:
+    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial,
+    sans-serif;
+}
+h1,
+h2,
+h3,
+.brand,
+.modal [data-slot="dialog-title"],
+.detail-countdown,
+[data-slot="empty-title"] {
+  font-family: inherit;
+  letter-spacing: -0.025em;
+}
+h1 {
+  font-size: 30px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+h2 {
+  font-size: 19px;
+  font-weight: 650;
+}
+.topbar {
+  height: 68px;
+  padding: 0 32px;
+  gap: 24px;
+}
+.brand {
+  font-size: 28px;
+  font-weight: 750;
+  letter-spacing: -1.1px;
+  gap: 10px;
+}
+.brand-mark {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  margin: 0;
+  padding: 0;
+  transform: none;
+  background: none;
+}
+.brand-period {
+  display: none;
+}
+.top-actions {
+  gap: 12px;
+}
+.desktop-add {
+  min-height: 40px;
+  padding: 8px 14px;
+  font-size: 14px;
+}
+.workspace {
+  max-width: 1440px;
+  grid-template-columns: 184px minmax(0, 1fr);
+  padding: 0 32px;
+}
+.rail {
+  min-height: calc(100vh - 68px);
+  padding: 28px 20px 20px 0;
+}
+.rail > .eyebrow {
+  margin-bottom: 16px;
+  font-size: 11px;
+  letter-spacing: 0.8px;
+}
+.nav-list {
+  gap: 5px;
+}
+.nav-list button {
+  background: transparent;
+  height: 44px !important;
+  min-height: 44px;
+  padding: 8px 12px !important;
+  font-size: 14px;
+}
+.workspace main {
+  padding: 28px 0 40px 32px;
+}
+.page-heading {
+  margin-bottom: 24px;
+}
+.page-heading .eyebrow {
+  font-size: 12px;
+  letter-spacing: 0.4px;
+  font-weight: 500;
+  margin-bottom: 6px;
+}
+.page-heading p:last-child {
+  margin-top: 7px;
+  font-size: 14px;
+}
+.tools {
+  gap: 14px;
+  margin-bottom: 26px;
+}
+.search {
+  max-width: 560px;
+}
+.search input {
+  font-size: 15px;
+  padding: 11px 0;
+}
+.filter-row [data-slot="select-trigger"] {
+  font-size: 14px;
+}
+.filter-row {
+  gap: 8px;
+}
+.section-heading {
+  margin-bottom: 14px;
+}
+.pill {
+  font-size: 11px !important;
+  letter-spacing: 0.4px;
+}
+.cards {
+  gap: 16px;
+}
+.card-main {
+  padding: 20px;
+  gap: 16px;
+}
+.card-copy h3 {
+  font-size: 19px;
+  font-weight: 650;
+  line-height: 1.35;
+}
+.card-copy .eyebrow {
+  font-size: 12px;
+  letter-spacing: 0.15px;
+  font-weight: 500;
+}
+.card-copy > .muted {
+  font-size: 14px;
+}
+.countdown {
+  font-size: 20px;
+  margin-top: 16px;
+  font-weight: 700;
+}
+.date-caption,
+.card-bottom {
+  font-size: 13px;
+}
+.card-bottom button {
+  font-size: 14px;
+}
+.photo {
+  width: 84px;
+  height: 84px;
+  aspect-ratio: 1;
+  border-radius: 12px;
+}
+.photo img {
+  object-fit: cover;
+}
+.detail > .photo {
+  width: 180px;
+  height: 180px;
+}
+.detail > .photo img {
+  object-fit: cover;
+}
+.detail > .photo.photo-label {
+  width: 100%;
+  height: 240px;
+}
+.detail > .photo.photo-label img {
+  object-fit: contain;
+}
+.detail-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.detail-actions button {
+  width: 100%;
+  min-height: 48px;
+  font-size: 14px;
+  white-space: normal;
+  line-height: 1.4;
+}
+.detail-countdown {
+  font-size: 28px;
+  font-weight: 700;
+}
+.detail dl > div {
+  font-size: 14px;
+}
+.modal [data-slot="dialog-title"] {
+  font-size: 23px !important;
+  font-weight: 700;
+  line-height: 1.3;
+  padding-right: 38px;
+}
+.modal [data-slot="dialog-description"] {
+  margin: 6px 0 16px;
+}
+.modal [data-slot="dialog-close"] {
+  min-height: 44px;
+  width: 44px;
+  height: 44px;
+  top: 14px;
+  right: 14px;
+}
+.editor.modal {
+  display: flex !important;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 24px 24px 0 !important;
+  max-height: calc(var(--visible-height, 100dvh) - 40px);
+  height: 850px;
+}
+.editor form {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+.editor-fields {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  min-height: 0;
+  flex: 1;
+  margin: 0 -24px;
+  padding: 0 24px 20px;
+  scroll-padding: 18px;
+}
+.editor .form-footer {
+  flex: 0 0 auto;
+  margin: 0 -24px;
+  padding: 16px 24px;
+  background: #fffefb;
+  border-top: 1px solid var(--border);
+}
+.editor .form-footer button {
+  min-height: 46px;
+  min-width: 115px;
+}
+.editor .field {
+  margin: 12px 0;
+}
+.editor .field textarea[rows] {
+  min-height: 76px;
+  resize: vertical;
+  line-height: 1.5;
+}
+.field {
+  position: relative;
+}
+.file-input {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  min-height: 0 !important;
+  padding: 0 !important;
+  opacity: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+}
+.photo-upload {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: #f4f6ef;
+  min-height: 48px;
+  padding: 10px;
+  font-size: 14px;
+  cursor: pointer;
+  font-weight: 600;
+}
+.field:focus-within .photo-upload {
+  outline: 2px solid var(--ring);
+  outline-offset: 3px;
+}
+.editor .photo {
+  height: 180px;
+  max-width: 220px;
+  aspect-ratio: 1;
+  width: 100%;
+}
+.editor .photo:not(.photo-label) img {
+  object-fit: cover;
+}
+.editor .photo.photo-label img {
+  object-fit: contain;
+}
+.scan-block {
+  padding: 14px;
+  margin: 8px 0 20px;
+  background: #eef3e7;
+}
+.scan-block .inline > .muted {
+  display: none;
+}
+.editor details {
+  padding: 16px 0;
+}
+.editor details summary {
+  font-size: 16px;
+}
+.form-grid {
+  align-items: start;
+  gap: 0 18px;
+}
+.field input,
+.field textarea {
+  font-size: 16px;
+}
+.crop-dialog {
+  max-width: 480px !important;
+}
+.crop-preview {
+  width: 100%;
+  max-height: 38dvh;
+  aspect-ratio: 1;
+  object-fit: contain;
+  touch-action: none;
+  display: block;
+  margin: 12px auto;
+  background: #e9eee6;
+  border-radius: 12px;
+}
+.crop-control {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  font-size: 14px;
+  margin: 18px 0;
+}
+.crop-control [data-slot="slider"] {
+  min-height: 24px;
+}
+.crop-control [data-slot="slider-thumb"] {
+  width: 25px;
+  height: 25px;
+}
+.crop-dialog .form-footer {
+  position: static;
+  padding: 14px 0 0;
+}
+.sync-hint {
+  font-size: 13px;
+  font-weight: 500;
+  min-height: 34px;
+  padding: 4px 9px;
+  border: 0;
+  background: #edf1e5;
+  margin-bottom: 12px;
+  line-height: 1.4;
+}
+.sync-panel p {
+  font-size: 14px;
+  margin: 10px 0;
+}
+.sync-panel button {
+  font-size: 14px;
+  margin: 4px 6px 4px 0;
+}
+.settings > section {
+  padding: 22px;
+}
+.settings > section h2 {
+  font-size: 19px;
+}
+[data-slot="empty"] {
+  min-height: 190px;
+  padding: 28px;
+  border-style: solid;
+  gap: 10px;
+  background: #f0f4e9;
+}
+[data-slot="empty-title"] {
+  font-size: 21px;
+  font-weight: 650;
+}
+[data-slot="empty-description"] {
+  font-size: 14px;
+}
+.undated-section,
+.expired-section {
+  margin-top: 28px;
+}
+@media (max-width: 760px) {
+  .topbar {
+    height: calc(60px + env(safe-area-inset-top));
+    padding: env(safe-area-inset-top) 18px 0;
+  }
+  .brand {
+    font-size: 27px;
+  }
+  .brand-mark {
+    width: 29px;
+    height: 29px;
+  }
+  .workspace {
+    padding: 0;
+  }
+  .workspace main {
+    padding: 23px 16px calc(96px + env(safe-area-inset-bottom));
+  }
+  .page-heading {
+    margin-bottom: 20px;
+  }
+  .page-heading h1 {
+    font-size: 28px;
+    letter-spacing: -0.7px;
+  }
+  .page-heading .eyebrow {
+    font-size: 12px;
+    letter-spacing: 0.2px;
+  }
+  .tools {
+    margin-bottom: 23px;
+  }
+  .search input {
+    font-size: 15px;
+  }
+  .filter-row [data-slot="select-trigger"] {
+    font-size: 13px;
+    min-height: 42px;
+    padding: 8px 10px;
+  }
+  .filter-row {
+    gap: 7px;
+  }
+  .card-main {
+    padding: 16px;
+    gap: 14px;
+  }
+  .card-main .photo {
+    width: 78px;
+    height: 78px;
+  }
+  .card-copy h3 {
+    font-size: 18px;
+    line-height: 1.4;
+  }
+  .card-copy .eyebrow {
+    font-size: 12px;
+  }
+  .card-copy > .muted {
+    font-size: 13px;
+  }
+  .countdown {
+    font-size: 21px;
+  }
+  .card-bottom {
+    padding: 8px 16px;
+  }
+  .mobile-nav button {
+    font-size: 11px;
+  }
+  .mobile-nav .mobile-plus {
+    margin: -10px 5px 0;
+    box-shadow: none;
+  }
+  .editor.modal {
+    inset: auto 0 auto !important;
+    top: var(--visible-top, 0px) !important;
+    left: 0 !important;
+    width: 100% !important;
+    max-width: none !important;
+    height: var(--visible-height, 100dvh) !important;
+    max-height: var(--visible-height, 100dvh) !important;
+    transform: none !important;
+    translate: none !important;
+    --tw-translate-x: 0px !important;
+    --tw-translate-y: 0px !important;
+    animation: none !important;
+    border: 0;
+    border-radius: 0 !important;
+    padding: calc(16px + env(safe-area-inset-top)) 20px 0 !important;
+  }
+  .editor.modal [data-slot="dialog-title"] {
+    font-size: 23px !important;
+    margin: 0;
+  }
+  .editor.modal [data-slot="dialog-close"] {
+    top: calc(6px + env(safe-area-inset-top));
+    right: 12px;
+  }
+  .editor.modal [data-slot="dialog-description"] {
+    font-size: 14px;
+    margin: 5px 36px 14px 0;
+  }
+  .editor-fields {
+    margin: 0 -20px;
+    padding: 0 20px 20px;
+  }
+  .editor .form-grid {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+  .editor .field {
+    margin: 10px 0;
+  }
+  .editor .field > span {
+    font-size: 14px;
+  }
+  .editor .field input,
+  .editor .field textarea,
+  .editor .field [data-slot="select-trigger"] {
+    font-size: 16px;
+    min-height: 48px;
+    padding: 11px 12px;
+  }
+  .editor .field textarea[rows] {
+    min-height: 82px;
+  }
+  .editor .form-footer {
+    margin: 0 -20px;
+    padding: 12px 20px calc(12px + env(safe-area-inset-bottom));
+    gap: 12px;
+  }
+  .editor .form-footer button {
+    flex: 1;
+    min-height: 48px;
+  }
+  .editor .scan-block {
+    margin-top: 0;
+  }
+  .editor .photo {
+    max-width: 180px;
+    height: 180px;
+    margin: 10px 0;
+  }
+  .photo-upload {
+    font-size: 15px;
+  }
+  .detail.modal {
+    max-height: calc(var(--visible-height, 100dvh) - 24px);
+    padding: 24px 20px !important;
+  }
+  .detail-actions {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+  .detail-actions button {
+    padding: 10px;
+    font-size: 14px;
+    min-height: 50px;
+  }
+  .detail-actions button:last-child:nth-child(odd) {
+    grid-column: 1/-1;
+  }
+  .crop-dialog.modal {
+    max-height: calc(var(--visible-height, 100dvh) - 20px);
+    top: calc(var(--visible-top, 0px) + var(--visible-height, 100dvh) / 2);
+  }
+  .crop-control {
+    margin: 12px 0;
+    gap: 8px;
+  }
+  .crop-preview {
+    max-height: 30dvh;
+  }
+}

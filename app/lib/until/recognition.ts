@@ -42,6 +42,7 @@ export async function recognizePhoto(
   const worker = await createWorker(language, 1, {
     workerPath: "/ocr/worker.min.js",
     corePath: "/ocr",
+    ...(language === "eng" ? { langPath: "/ocr" } : {}),
     logger: (m) =>
       onProgress(`${m.status} ${Math.round(m.progress * 100) || 0}%`),
   });

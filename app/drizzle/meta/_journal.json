@@ -8,6 +8,13 @@
       "when": 1790373219293,
       "tag": "0000_wide_anita_blake",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1790420427678,
+      "tag": "0001_striped_ravenous",
+      "breakpoints": true
     }
   ]
 }

@@ -10,6 +10,10 @@ for (const size of [180, 192, 512])
     );
 await fs.mkdir("public/ocr", { recursive: true });
 await fs.copyFile(
+  "node_modules/@tesseract.js-data/eng/4.0.0_best_int/eng.traineddata.gz",
+  "public/ocr/eng.traineddata.gz",
+);
+await fs.copyFile(
   "node_modules/tesseract.js/dist/worker.min.js",
   "public/ocr/worker.min.js",
 );
