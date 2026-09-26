@@ -21,7 +21,7 @@ test("rendered item controls have stable semantics, one form owner and only one 
   await expect(form.locator("[required]")).toHaveCount(1);
   await expect(form.locator("[required]")).toHaveAttribute(
     "id",
-    "product-name",
+    "until-product-title",
   );
   await expect(
     page.getByLabel("Product name *", { exact: true }),
@@ -31,7 +31,13 @@ test("rendered item controls have stable semantics, one form owner and only one 
     "Start with a name. Add a date whenever you have it.",
   );
   const fields = [
-    ["Product name *", "product-name", "until-product-name", "text", "text"],
+    [
+      "Product name *",
+      "until-product-title",
+      "until-product-title",
+      "text",
+      "text",
+    ],
     ["Brand", "product-brand", "until-product-brand", "text", "text"],
     ["Package size", "product-size", "until-package-size", "text", "text"],
     ["Notes", "item-notes", "until-item-notes", "textarea", "text"],
@@ -198,12 +204,11 @@ test("shared label rows align with and without help; desktop columns and mobile 
   }
 });
 
-test("keyboard viewport keeps an opaque readable form without a full-screen opaque backing or floating save button", async ({
+test("keyboard viewport keeps the form beneath the native keyboard and focused controls above it", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 390, height: 844 });
-  // Mock only visualViewport geometry: the layout viewport remains full height,
-  // as when a native keyboard occludes the lower portion. This is not iOS QA.
+  // Geometry-only mock, not a native iPhone keyboard or translucency test.
   await page.addInitScript(() => {
     const viewport = new EventTarget();
     Object.assign(viewport, { height: 844, offsetTop: 0, scale: 1 });
@@ -216,41 +221,56 @@ test("keyboard viewport keeps an opaque readable form without a full-screen opaq
   await page.getByRole("button", { name: "Add item", exact: true }).click();
   await expandSection(page, "More details");
   const name = page.getByLabel("Product name *");
-  await name.fill("Keyboard appearance record");
   const notes = page.getByLabel("Notes", { exact: true });
-  await notes.fill("Keep focused fields reachable");
+  await name.fill("Keyboard appearance record");
   await page.evaluate(() => {
     Object.assign(window.visualViewport!, { height: 420, offsetTop: 24 });
     window.visualViewport!.dispatchEvent(new Event("resize"));
   });
   await expect(page.locator("html")).toHaveClass(/keyboard-open/);
   await expect(page.locator(".editor .form-footer")).toBeHidden();
-  await expect(page.locator('[data-slot="dialog-overlay"]')).toHaveCSS(
-    "background-color",
-    "rgba(0, 0, 0, 0)",
-  );
-  await expect(page.locator(".editor.modal")).toHaveCSS(
-    "background-color",
-    "rgb(255, 254, 251)",
-  );
-  await expect
-    .poll(async () => {
-      const box = await notes.boundingBox();
-      const scroll = await page.locator(".editor-fields").boundingBox();
-      return (
-        !!box &&
-        !!scroll &&
-        box.y >= scroll.y &&
-        box.y + box.height <= scroll.y + scroll.height
-      );
-    })
-    .toBe(true);
-  await expect
-    .poll(async () => (await page.locator(".editor").boundingBox())?.y)
-    .toBe(24);
+  for (const field of [
+    name,
+    page.getByLabel("Brand", { exact: true }),
+    page.getByLabel("Quantity", { exact: true }),
+    notes,
+  ]) {
+    await field.focus();
+    await expect
+      .poll(async () => {
+        const box = await field.boundingBox();
+        const scroll = await page.locator(".editor-fields").boundingBox();
+        return (
+          !!box &&
+          !!scroll &&
+          box.y >= scroll.y &&
+          box.y + box.height <= 444 - 16
+        );
+      })
+      .toBe(true);
+    // The entire occluded area must belong to the editor, never to a shelf card.
+    expect(
+      await page.evaluate(() =>
+        [460, 600, 820].every((y) =>
+          Boolean(document.elementFromPoint(195, y)?.closest(".editor")),
+        ),
+      ),
+    ).toBe(true);
+    expect(
+      await page.evaluate(() => document.scrollingElement!.scrollTop),
+    ).toBe(0);
+  }
+  await notes.fill("Keep focused fields reachable");
+  const before = await page
+    .locator(".editor-fields")
+    .evaluate((el) => el.scrollTop);
+  await page.locator(".editor-fields").evaluate((el) => (el.scrollTop -= 100));
+  expect(
+    await page.locator(".editor-fields").evaluate((el) => el.scrollTop),
+  ).toBeLessThan(before);
   const modal = await page.locator(".editor").boundingBox();
   expect(modal!.y).toBe(24);
-  expect(modal!.height).toBe(420);
+  expect(modal!.height).toBe(844);
   await page.screenshot({
     path: "test-results/item-form-keyboard-geometry.png",
   });
@@ -260,10 +280,16 @@ test("keyboard viewport keeps an opaque readable form without a full-screen opaq
   });
   await notes.blur();
   await expect(page.locator(".editor .form-footer")).toBeVisible();
-  await expect(page.locator('[data-slot="dialog-overlay"]')).toHaveCSS(
-    "background-color",
-    "rgb(255, 254, 251)",
-  );
+  await expect(page.locator(".editor .form-footer")).toBeInViewport();
   await expect(name).toHaveValue("Keyboard appearance record");
   await expect(notes).toHaveValue("Keep focused fields reachable");
+  await page.getByRole("button", { name: "Close", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Discard changes", exact: true })
+    .click();
+  await expect(page.locator(".editor")).toHaveCount(0);
+  await expect(page.locator("html")).not.toHaveClass(/keyboard-open/);
+  await page.getByRole("button", { name: "Add item", exact: true }).click();
+  await expect(page.locator(".editor .form-footer")).toBeInViewport();
+  await expect(name).not.toBeFocused();
 });

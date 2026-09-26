@@ -61,32 +61,38 @@ export function ProductRecognition({
       className="product-recognition"
       aria-label="Product name recognition"
     >
-      <Choice
-        label="Product label language"
-        value={language}
-        onChange={setLanguage}
-        options={[
-          { value: "eng", label: "English" },
-          { value: "deu", label: "German" },
-          { value: "fra", label: "French" },
-          { value: "spa", label: "Spanish" },
-          { value: "hrv", label: "Croatian" },
-        ]}
-      />
-      <Choice
-        label="Product text area"
-        value={area}
-        onChange={(v) => setArea(v as typeof area)}
-        options={[
-          { value: "whole", label: "Whole photo" },
-          { value: "top", label: "Top half" },
-          { value: "bottom", label: "Bottom half" },
-        ]}
-      />
-      <small>
-        Choose the language printed on the package. Try a closer photo with the
-        complete name; decorative logos can be misread.
-      </small>
+      <details className="recognition-options">
+        <summary>Product recognition options</summary>
+        <Choice
+          id="until-product-text-language"
+          name="until-product-text-language"
+          label="Product label language"
+          value={language}
+          onChange={setLanguage}
+          options={[
+            { value: "eng", label: "English" },
+            { value: "deu", label: "German" },
+            { value: "fra", label: "French" },
+            { value: "spa", label: "Spanish" },
+            { value: "hrv", label: "Croatian" },
+          ]}
+        />
+        <Choice
+          id="until-product-text-area"
+          name="until-product-text-area"
+          label="Product text area"
+          value={area}
+          onChange={(v) => setArea(v as typeof area)}
+          options={[
+            { value: "whole", label: "Whole photo" },
+            { value: "top", label: "Top half" },
+            { value: "bottom", label: "Bottom half" },
+          ]}
+        />
+        <small>
+          Choose the language and the area showing the product title.
+        </small>
+      </details>
       <button type="button" onClick={recognize} disabled={busy}>
         {busy ? "Reading product…" : "Recognize product"}
       </button>
@@ -103,8 +109,7 @@ export function ProductRecognition({
         </button>
       )}
       <small>
-        Reads text on this device. No paid service or photo upload for
-        recognition. You choose what to apply.
+        Reads on this device. Check the suggested name before applying it.
       </small>
       {message && <p role="status">{message}</p>}
       {text && (
@@ -118,6 +123,10 @@ export function ProductRecognition({
           <label className="field">
             <span>Suggested product name</span>
             <input
+              id="until-recognized-product-title"
+              name="until-recognized-product-title"
+              type="text"
+              inputMode="text"
               autoComplete="off"
               maxLength={200}
               value={name}

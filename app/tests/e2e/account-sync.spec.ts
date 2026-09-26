@@ -349,12 +349,12 @@ test("mobile editor, keyboard-size viewport, crop and replacement survive reload
     .poll(
       async () => (await page.locator(".editor.modal").boundingBox())?.height,
     )
-    .toBe(440);
+    .toBe(844);
   const editorBox = await page.locator(".editor.modal").boundingBox();
   expect(editorBox!.x).toBe(0);
   expect(editorBox!.y).toBe(0);
   expect(editorBox!.width).toBe(390);
-  expect(editorBox!.height).toBe(440);
+  expect(editorBox!.height).toBe(844);
   const save = page.getByRole("button", { name: "Add item", exact: true });
   await expect(page.locator("html")).toHaveClass(/keyboard-open/);
   await expect(page.locator(".editor .form-footer")).toBeHidden();

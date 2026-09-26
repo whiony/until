@@ -1823,9 +1823,6 @@ h2 {
 }
 .product-recognition {
   margin: 12px 0;
-  padding: 12px;
-  background: #f1f2e5;
-  border-radius: 10px;
 }
 .product-recognition small {
   display: block;
@@ -1838,6 +1835,7 @@ h2 {
   max-height: 150px;
   overflow: auto;
 }
+
 .keyboard-done {
   display: none;
 }
@@ -2137,7 +2135,7 @@ h1 {
  .editor-fields { margin: 0 -16px; padding: 0 16px 16px; }
  .editor .editor-fields [data-slot="dialog-description"], .keyboard-open .editor .editor-fields [data-slot="dialog-description"] { display: block; margin: 0 0 14px; font-size: 13px; }
  .editor .form-grid { grid-template-columns: 1fr; }
- .editor .photo-section .form-grid { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 10px; }
+ .editor .photo-section .form-grid { grid-template-columns: 1fr; gap: 16px; }
  .editor .photo-section .field-label { font-size: 13px; align-items: flex-start; }
  .editor .photo-section .photo { width: 100%; max-width: 180px; height: auto; aspect-ratio: 1; }
  .editor .photo-upload { font-size: 13px; }
@@ -2222,10 +2220,15 @@ h1 {
 .date-picker > button { width: 100%; margin-top: 8px; min-height: 40px; }
 @media (max-width:760px) {
  .keyboard-open .editor .form-footer { display: none; }
- /* The opaque editor already covers the visible viewport. Do not paint a
-    second flat surface behind the system keyboard and its accessory bar. */
- .keyboard-open body:has(.editor) [data-slot="dialog-overlay"] { background: transparent; }
- .keyboard-open body:has(.editor) { background: var(--background); }
+ /* Keep the actual form under the native keyboard, rather than exposing the
+    shelf when the visual viewport shrinks. Focus visibility is handled in JS. */
+ .keyboard-open .editor.modal {
+   height: var(--editor-layout-height, 100svh) !important;
+   max-height: var(--editor-layout-height, 100svh) !important;
+ }
+ .keyboard-open .editor-fields {
+   padding-bottom: calc(16px + var(--keyboard-occlusion, 0px));
+ }
  .editor .photo-section .field-label { font-size: 12px; align-items: center; gap: 4px; }
  .editor .photo-section .field-help { flex-basis: 32px; }
  .editor .photo-upload { font-size: 12px; gap: 6px; padding: 8px; }
@@ -2455,4 +2458,42 @@ h1 {
   .detail-overview > .photo {
     justify-self: center;
   }
+}
+
+/* Photo tools stay with their own preview; options are collapsed by default. */
+.editor .photo-panels { align-items: start; }
+.editor .photo-panel { min-width: 0; padding: 0 0 14px; }
+.editor .photo-panel .photo {
+  width: 100%;
+  max-width: none;
+  height: 220px;
+  aspect-ratio: auto;
+  margin: 12px 0;
+  background: #f5f4ed;
+  grid-template-rows: minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr);
+}
+.editor .photo-panel .photo img { object-fit: contain; min-height: 0; min-width: 0; }
+.editor .recognition-options { margin: 12px 0; padding: 0; border: 0; }
+.editor .photo-section .recognition-options > summary {
+  display: list-item;
+  list-style: revert;
+  min-height: 44px;
+  padding: 10px 0;
+  font-size: 14px;
+  cursor: pointer;
+}
+.editor .recognition-options[open] {
+  padding: 0 12px 12px;
+  background: #f1f2e5;
+  border-radius: 10px;
+}
+.editor .photo-panel small, .editor .label-recognition > p {
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--muted-foreground);
+}
+.editor .photo-panel .recognition { overflow-wrap: anywhere; }
+@media (max-width: 760px) {
+  .editor .photo-panel + .photo-panel { border-top: 1px solid var(--border); padding-top: 10px; }
 }

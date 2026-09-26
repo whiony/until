@@ -291,6 +291,9 @@ test("narrow touch calendar and help remain reachable; visible expansion does no
   const wide = await desktop.newPage();
   await wide.goto("/");
   await wide.getByRole("button", { name: "Add item", exact: true }).click();
+  // Leave enough visible space for the expanded first field; photo tools have
+  // their own spacing and should not determine this disclosure regression.
+  await wide.locator(".photo-section > summary").click();
   const scroll = wide.locator(".editor-fields");
   const before = await scroll.evaluate((el) => el.scrollTop);
   await expandSection(wide, "After opening");

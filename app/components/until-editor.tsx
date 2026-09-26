@@ -117,13 +117,14 @@ export function Editor({
   const [issue, setIssue] = useState<FieldIssue | null>(null);
   const formRef = useRef<HTMLFormElement>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
+  const controlId = (field: string) =>
+    field === "product-name" ? "until-product-title" : field;
   const invalid = (field: string) => ({
-    id: field,
-    name: `until-${field}`,
+    id: controlId(field),
+    name: field === "product-name" ? "until-product-title" : `until-${field}`,
     autoComplete: "off",
     "aria-label": (
       {
-        "product-name": "Product name *",
         "item-quantity": "Quantity",
         "printed-date": "Printed date",
         "opened-date": "Opened date",
@@ -142,7 +143,9 @@ export function Editor({
     ) : null;
   function reveal(field: string) {
     requestAnimationFrame(() => {
-      const element = formRef.current?.querySelector<HTMLElement>(`#${field}`);
+      const element = formRef.current?.querySelector<HTMLElement>(
+        `#${controlId(field)}`,
+      );
       if (!element) return;
       let parent = element.parentElement;
       while (parent) {
@@ -360,7 +363,7 @@ export function Editor({
               </p>
             )}
             <div className="field">
-              <label htmlFor="product-name">Product name *</label>
+              <label htmlFor="until-product-title">Product name *</label>
               <input
                 {...invalid("product-name")}
                 type="text"
@@ -423,8 +426,11 @@ export function Editor({
               defaultOpen
               className="photo-section"
             >
-              <div className="form-grid">
-                <div>
+              <div className="form-grid photo-panels">
+                <section
+                  className="photo-panel"
+                  aria-label="Product photo tools"
+                >
                   <div className="field">
                     <span className="field-label">
                       Product photo
@@ -472,22 +478,6 @@ export function Editor({
                     />
                   )}
                   {product.photoId && (
-                    <ProductRecognition
-                      key={product.photoId}
-                      getBlob={async () =>
-                        originalProduct ||
-                        photos[product.photoId!] ||
-                        (await getPhoto(product.photoId!))
-                      }
-                      onApply={(name) => {
-                        p({ name });
-                        setInfo(
-                          "Product name applied. You can edit it before saving.",
-                        );
-                      }}
-                    />
-                  )}
-                  {product.photoId && (
                     <button
                       type="button"
                       onClick={async () => {
@@ -505,8 +495,24 @@ export function Editor({
                       Crop photo
                     </button>
                   )}
-                </div>
-                <div>
+                  {product.photoId && (
+                    <ProductRecognition
+                      key={product.photoId}
+                      getBlob={async () =>
+                        originalProduct ||
+                        photos[product.photoId!] ||
+                        (await getPhoto(product.photoId!))
+                      }
+                      onApply={(name) => {
+                        p({ name });
+                        setInfo(
+                          "Product name applied. You can edit it before saving.",
+                        );
+                      }}
+                    />
+                  )}
+                </section>
+                <section className="photo-panel" aria-label="Label photo tools">
                   <div className="field">
                     <span className="field-label">
                       Label photo
@@ -557,116 +563,127 @@ export function Editor({
                       name="Original packaging label"
                     />
                   )}
-                </div>
-              </div>
 
-              {group.packagingPhotoId && (
-                <>
-                  <Choice
-                    label="Packaging language"
-                    id="until-packaging-language"
-                    name="until-packaging-language"
-                    value={language}
-                    onChange={setLanguage}
-                    options={[
-                      { value: "eng", label: "English" },
-                      { value: "deu", label: "German" },
-                      { value: "fra", label: "French" },
-                      { value: "spa", label: "Spanish" },
-                      { value: "hrv", label: "Croatian" },
-                    ]}
-                  />
-                  <Choice
-                    label="Date text area"
-                    id="until-date-text-area"
-                    name="until-date-text-area"
-                    value={dateArea}
-                    onChange={(v) => setDateArea(v as typeof dateArea)}
-                    options={[
-                      { value: "whole", label: "Whole photo" },
-                      { value: "top", label: "Top half" },
-                      { value: "bottom", label: "Bottom half" },
-                    ]}
-                  />
-                  <small>
-                    Choose the packaging language, independently of the app
-                    language. Focus on the half containing the date if nearby
-                    text gets in the way.
-                  </small>
-                  <button type="button" disabled={ocrBusy} onClick={ocr}>
-                    {ocrBusy ? "Reading photo…" : "Read date from photo"}
-                  </button>
-                  <p className="muted">
-                    Runs on your device. The first use downloads a language
-                    model. Faded print and unfamiliar languages may not be
-                    recognized.
-                  </p>
-                </>
-              )}
-              {recognition && (
-                <div className="recognition">
-                  <label className="field">
-                    <span>
-                      Extracted text · {Math.round(recognition.confidence)}% OCR
-                      confidence
-                    </span>
-                    <textarea
-                      value={recognition.text}
-                      onChange={(e) =>
-                        setRecognition({ ...recognition, text: e.target.value })
-                      }
-                    />
-                  </label>
-                  <p>
-                    These are possibilities, not confirmed dates. Numeric date
-                    order may be ambiguous. Two-digit years are shown as
-                    2000–2099. Check the year and order against the original
-                    before choosing.
-                  </p>
-                  {recognition.dates.map((d) => (
-                    <button
-                      key={d}
-                      type="button"
-                      onClick={() => {
-                        g({
-                          printedDate: d,
-                          recognition: {
-                            text: recognition.text,
-                            confirmedAt: stamp(),
-                          },
-                        });
-                        setInfo(`Confirmed printed date: ${displayDate(d)}`);
-                      }}
-                    >
-                      Confirm {displayDate(d)}
-                    </button>
-                  ))}
-                  {recognition.rules.map((r, i) => (
-                    <button
-                      type="button"
-                      key={i}
-                      onClick={() => {
-                        g({
-                          rule: r,
-                          recognition: {
-                            text: recognition.text,
-                            confirmedAt: stamp(),
-                          },
-                        });
-                        setInfo("After-opening rule confirmed.");
-                      }}
-                    >
-                      Confirm {r.amount} {r.unit}
-                    </button>
-                  ))}
-                  {!recognition.dates.length && !recognition.rules.length && (
-                    <p>
-                      No clear date or after-opening instruction found. Enter it
-                      manually above.
-                    </p>
+                  {group.packagingPhotoId && (
+                    <div className="label-recognition">
+                      <details className="recognition-options">
+                        <summary>Label recognition options</summary>
+                        <Choice
+                          label="Packaging language"
+                          id="until-packaging-language"
+                          name="until-packaging-language"
+                          value={language}
+                          onChange={setLanguage}
+                          options={[
+                            { value: "eng", label: "English" },
+                            { value: "deu", label: "German" },
+                            { value: "fra", label: "French" },
+                            { value: "spa", label: "Spanish" },
+                            { value: "hrv", label: "Croatian" },
+                          ]}
+                        />
+                        <Choice
+                          label="Date text area"
+                          id="until-date-text-area"
+                          name="until-date-text-area"
+                          value={dateArea}
+                          onChange={(v) => setDateArea(v as typeof dateArea)}
+                          options={[
+                            { value: "whole", label: "Whole photo" },
+                            { value: "top", label: "Top half" },
+                            { value: "bottom", label: "Bottom half" },
+                          ]}
+                        />
+                        <small>
+                          Choose the packaging language and the area containing
+                          the date.
+                        </small>
+                      </details>
+                      <button type="button" disabled={ocrBusy} onClick={ocr}>
+                        {ocrBusy ? "Reading photo…" : "Read date from photo"}
+                      </button>
+                      <p className="muted">
+                        Reads on this device. Check the results against the
+                        label; nothing is applied automatically.
+                      </p>
+                    </div>
                   )}
-                </div>
-              )}
+                  {recognition && (
+                    <div className="recognition">
+                      <label className="field">
+                        <span>
+                          Extracted text · {Math.round(recognition.confidence)}%
+                          OCR confidence
+                        </span>
+                        <textarea
+                          id="until-label-extracted-text"
+                          name="until-label-extracted-text"
+                          autoComplete="off"
+                          inputMode="text"
+                          value={recognition.text}
+                          onChange={(e) =>
+                            setRecognition({
+                              ...recognition,
+                              text: e.target.value,
+                            })
+                          }
+                        />
+                      </label>
+                      <p>
+                        These are possibilities, not confirmed dates. Numeric
+                        date order may be ambiguous. Two-digit years are shown
+                        as 2000–2099. Check the year and order against the
+                        original before choosing.
+                      </p>
+                      {recognition.dates.map((d) => (
+                        <button
+                          key={d}
+                          type="button"
+                          onClick={() => {
+                            g({
+                              printedDate: d,
+                              recognition: {
+                                text: recognition.text,
+                                confirmedAt: stamp(),
+                              },
+                            });
+                            setInfo(
+                              `Confirmed printed date: ${displayDate(d)}`,
+                            );
+                          }}
+                        >
+                          Confirm {displayDate(d)}
+                        </button>
+                      ))}
+                      {recognition.rules.map((r, i) => (
+                        <button
+                          type="button"
+                          key={i}
+                          onClick={() => {
+                            g({
+                              rule: r,
+                              recognition: {
+                                text: recognition.text,
+                                confirmedAt: stamp(),
+                              },
+                            });
+                            setInfo("After-opening rule confirmed.");
+                          }}
+                        >
+                          Confirm {r.amount} {r.unit}
+                        </button>
+                      ))}
+                      {!recognition.dates.length &&
+                        !recognition.rules.length && (
+                          <p>
+                            No clear date or after-opening instruction found.
+                            Enter it manually above.
+                          </p>
+                        )}
+                    </div>
+                  )}
+                </section>
+              </div>
             </Disclosure>
             <section className="date-section" aria-label="Dates">
               <h2>Dates</h2>
