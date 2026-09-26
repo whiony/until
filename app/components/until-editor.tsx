@@ -96,6 +96,7 @@ export function Editor({
           schemaVersion: 1,
         },
   );
+  const submitting = useRef(false);
   const initialValues = useRef(JSON.stringify({ product, group }));
   const [confirmClose, setConfirmClose] = useState(false);
   function requestClose() {
@@ -117,6 +118,7 @@ export function Editor({
   const [issue, setIssue] = useState<FieldIssue | null>(null);
   const formRef = useRef<HTMLFormElement>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
+  const returnFocus = useRef<HTMLElement | null>(null);
   const controlId = (field: string) =>
     field === "product-name" ? "until-product-title" : field;
   const invalid = (field: string) => ({
@@ -299,6 +301,8 @@ export function Editor({
     group.printedDate < group.openedDate;
   async function submit(e: React.FormEvent) {
     e.preventDefault();
+    if (submitting.current) return;
+    submitting.current = true;
     setError("");
     try {
       const problem = editorIssue(product.name, group, ack);
@@ -321,6 +325,7 @@ export function Editor({
       setError((e as Error).message);
       reveal("form-error");
     } finally {
+      submitting.current = false;
       setBusy(false);
     }
   }
@@ -334,8 +339,22 @@ export function Editor({
       <DialogContent
         className="editor modal"
         ref={dialogRef}
+        onCloseAutoFocus={(event) => {
+          event.preventDefault();
+          queueMicrotask(() => {
+            if (
+              !document.querySelector('[data-slot="dialog-content"]') &&
+              returnFocus.current?.isConnected
+            )
+              returnFocus.current.focus({ preventScroll: true });
+          });
+        }}
         onOpenAutoFocus={(event) => {
           event.preventDefault();
+          returnFocus.current =
+            document.activeElement instanceof HTMLElement
+              ? document.activeElement
+              : null;
           dialogRef.current?.focus({ preventScroll: true });
         }}
       >

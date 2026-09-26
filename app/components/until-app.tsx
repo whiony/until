@@ -3,7 +3,7 @@ import { categoryNames } from "@/lib/until/preferences";
 import { AppearanceCategories } from "./until-preferences";
 import { InlineDate } from "./until-inline-date";
 import { demoRecords, itemCount, units } from "@/lib/until/demo";
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import Link from "next/link";
 import {
   Plus,
@@ -90,6 +90,7 @@ export default function UntilApp() {
     product?: Product;
   } | null>(null);
   const [detail, setDetail] = useState<string | null>(null);
+  const returnDetailFocus = useRef<HTMLElement | null>(null);
   const [busy, setBusy] = useState(false);
   function setEditor(value: typeof editor) {
     if (value && demo) {
@@ -195,8 +196,16 @@ export default function UntilApp() {
             "This item changed in another window. Close and reopen it before editing.",
           );
         Object.assign(item, v.item);
-      } else r.items.push(v.item);
+      } else if (!item) r.items.push(v.item);
+      else throw Error("This item has already been added.");
     }, v.photos);
+    // Close the source History detail only after the local transaction succeeds.
+    if (
+      !v.editing &&
+      detail &&
+      realRecords.items.some((i) => i.id === detail && i.status !== "active")
+    )
+      setDetail(null);
     toast.success(v.editing ? "Changes saved" : "Added to your shelf");
   }
   async function action(fn: (r: Records) => void, message: string) {
@@ -815,8 +824,22 @@ export default function UntilApp() {
         <Dialog open onOpenChange={(v) => !v && setDetail(null)}>
           <DialogContent
             tabIndex={-1}
+            onCloseAutoFocus={(event) => {
+              event.preventDefault();
+              queueMicrotask(() => {
+                if (
+                  !document.querySelector('[data-slot="dialog-content"]') &&
+                  returnDetailFocus.current?.isConnected
+                )
+                  returnDetailFocus.current.focus({ preventScroll: true });
+              });
+            }}
             onOpenAutoFocus={(event) => {
               event.preventDefault();
+              returnDetailFocus.current =
+                document.activeElement instanceof HTMLElement
+                  ? document.activeElement
+                  : null;
               document
                 .querySelector<HTMLElement>(".detail")
                 ?.focus({ preventScroll: true });
@@ -1062,226 +1085,230 @@ function Settings({
           <p>Manage reminders and account storage.</p>
         </div>
       </div>
-      <AppearanceCategories records={records} onChange={onChange} />
-      <form
-        className="settings"
-        onSubmit={async (e) => {
-          e.preventDefault();
-          setSaving(true);
-          try {
-            await onChange((r) => {
-              r.settings.soonDays = settings.soonDays;
-              r.settings.notifications = settings.notifications;
-            });
-            setMessage("Preferences saved. Notifications are not active.");
-          } catch {
-            setMessage("Could not save. Please try again.");
-          } finally {
-            setSaving(false);
-          }
-        }}
-      >
-        <section>
-          <h2>Your Soon window</h2>
-          <label className="field">
-            <span>Show dates in the next (days)</span>
-            <input
-              type="number"
-              min={1}
-              max={90}
-              required
-              value={settings.soonDays}
-              onChange={(e) =>
-                setSettings({ ...settings, soonDays: e.target.valueAsNumber })
-              }
-            />
-          </label>
-        </section>
-        <section>
-          <h2>
-            <BellOff /> Gentle reminders
-          </h2>
-          <p className="notice">
-            Notifications are not active. The server still needs scheduled Web
-            Push delivery. Saving preferences does not enable alerts.
-          </p>
-          <CheckField
-            label="Daily digest when reminders become available"
-            checked={n.requested}
-            onChange={(v) =>
-              setSettings({
-                ...settings,
-                notifications: { ...n, requested: v },
-              })
+      <div className="settings-layout">
+        <AppearanceCategories records={records} onChange={onChange} />
+        <form
+          className="settings"
+          onSubmit={async (e) => {
+            e.preventDefault();
+            setSaving(true);
+            try {
+              await onChange((r) => {
+                r.settings.soonDays = settings.soonDays;
+                r.settings.notifications = settings.notifications;
+              });
+              setMessage("Preferences saved. Notifications are not active.");
+            } catch {
+              setMessage("Could not save. Please try again.");
+            } finally {
+              setSaving(false);
             }
-          />
-          <CheckField
-            label="Also remind me on the expiration day"
-            checked={n.expirationDay}
-            onChange={(v) =>
-              setSettings({
-                ...settings,
-                notifications: { ...n, expirationDay: v },
-              })
-            }
-          />
-          <div className="form-grid">
+          }}
+        >
+          <section>
+            <h2>Your Soon window</h2>
             <label className="field">
-              <span>Lead time (days)</span>
+              <span>Show dates in the next (days)</span>
               <input
                 type="number"
-                required
-                min={0}
+                min={1}
                 max={90}
-                value={n.leadDays}
-                onChange={(e) =>
-                  setSettings({
-                    ...settings,
-                    notifications: { ...n, leadDays: e.target.valueAsNumber },
-                  })
-                }
-              />
-            </label>
-            <label className="field">
-              <span>Digest time</span>
-              <input
-                type="time"
                 required
-                value={n.time}
+                value={settings.soonDays}
                 onChange={(e) =>
-                  setSettings({
-                    ...settings,
-                    notifications: { ...n, time: e.target.value },
-                  })
+                  setSettings({ ...settings, soonDays: e.target.valueAsNumber })
                 }
               />
             </label>
-            <label className="field">
-              <span>Quiet hours start</span>
-              <input
-                type="time"
-                required
-                value={n.quietStart}
-                onChange={(e) =>
-                  setSettings({
-                    ...settings,
-                    notifications: { ...n, quietStart: e.target.value },
-                  })
-                }
-              />
-            </label>
-            <label className="field">
-              <span>Quiet hours end</span>
-              <input
-                type="time"
-                required
-                value={n.quietEnd}
-                onChange={(e) =>
-                  setSettings({
-                    ...settings,
-                    notifications: { ...n, quietEnd: e.target.value },
-                  })
-                }
-              />
-            </label>
-          </div>
-          <p className="muted">
-            Timezone: {n.timezone}. Dates on your shelf always use your current
-            local calendar day.
-          </p>
-          <button
-            type="button"
-            onClick={async () => {
-              try {
-                await notificationService.enable();
-              } catch (e) {
-                setMessage((e as Error).message);
+          </section>
+          <section>
+            <h2>
+              <BellOff /> Gentle reminders
+            </h2>
+            <p className="notice">
+              Notifications are not active. The server still needs scheduled Web
+              Push delivery. Saving preferences does not enable alerts.
+            </p>
+            <CheckField
+              label="Daily digest when reminders become available"
+              checked={n.requested}
+              onChange={(v) =>
+                setSettings({
+                  ...settings,
+                  notifications: { ...n, requested: v },
+                })
               }
-            }}
-          >
-            Check reminder availability
-          </button>
-          <p className="muted">
-            On iPhone, use Safari → Share → Add to Home Screen. Push reminders
-            require an installed Home Screen app and your permission. We will
-            only request permission when delivery is available and you choose to
-            enable it.
-          </p>
-        </section>
-        <button type="submit" className="primary" disabled={saving}>
-          {saving ? "Saving…" : "Save preferences"}
-        </button>
-        {message && (
-          <p role="status" className="notice">
-            {message}
-          </p>
-        )}
-        <SyncPanel state={sync} retry={retry} />
-        <section>
-          <h2>Data & storage</h2>
-          <p>
-            Items and photos sync with the same signed-in account. Updates are
-            checked on opening, focus, reconnect, and every 10 seconds while
-            visible. Offline changes stay on this device until they can be
-            uploaded.
-          </p>
-          <p className="muted">
-            JSON export includes records and photo references, not photo files.
-            Existing device-only entries migrate when that device opens this
-            version. Recovery copies are kept if you choose a cloud version
-            after a conflict.
-          </p>
-          <div className="inline">
-            <button
-              type="button"
-              onClick={() =>
-                exportRecords(true).catch(() =>
-                  setMessage("Export failed. Try again."),
-                )
+            />
+            <CheckField
+              label="Also remind me on the expiration day"
+              checked={n.expirationDay}
+              onChange={(v) =>
+                setSettings({
+                  ...settings,
+                  notifications: { ...n, expirationDay: v },
+                })
               }
-            >
-              <Download /> Export JSON
-            </button>
-            <button type="button" onClick={retry}>
-              Retry sync
-            </button>
+            />
+            <div className="form-grid">
+              <label className="field">
+                <span>Lead time (days)</span>
+                <input
+                  type="number"
+                  required
+                  min={0}
+                  max={90}
+                  value={n.leadDays}
+                  onChange={(e) =>
+                    setSettings({
+                      ...settings,
+                      notifications: { ...n, leadDays: e.target.valueAsNumber },
+                    })
+                  }
+                />
+              </label>
+              <label className="field">
+                <span>Digest time</span>
+                <input
+                  type="time"
+                  required
+                  value={n.time}
+                  onChange={(e) =>
+                    setSettings({
+                      ...settings,
+                      notifications: { ...n, time: e.target.value },
+                    })
+                  }
+                />
+              </label>
+              <label className="field">
+                <span>Quiet hours start</span>
+                <input
+                  type="time"
+                  required
+                  value={n.quietStart}
+                  onChange={(e) =>
+                    setSettings({
+                      ...settings,
+                      notifications: { ...n, quietStart: e.target.value },
+                    })
+                  }
+                />
+              </label>
+              <label className="field">
+                <span>Quiet hours end</span>
+                <input
+                  type="time"
+                  required
+                  value={n.quietEnd}
+                  onChange={(e) =>
+                    setSettings({
+                      ...settings,
+                      notifications: { ...n, quietEnd: e.target.value },
+                    })
+                  }
+                />
+              </label>
+            </div>
+            <p className="muted">
+              Timezone: {n.timezone}. Dates on your shelf always use your
+              current local calendar day.
+            </p>
             <button
               type="button"
               onClick={async () => {
-                const granted = await navigator.storage?.persist?.();
-                setMessage(
-                  granted
-                    ? "Persistent device storage granted."
-                    : "The browser manages storage automatically. Export your records regularly.",
-                );
+                try {
+                  await notificationService.enable();
+                } catch (e) {
+                  setMessage((e as Error).message);
+                }
               }}
             >
-              Keep device storage
+              Check reminder availability
             </button>
-          </div>
-        </section>
-        <section>
-          <h2>Product data credits</h2>
-          <p>
-            Suggestions from{" "}
-            <a href="https://world.openfoodfacts.org">Open Food Facts</a>,{" "}
-            <a href="https://world.openbeautyfacts.org">Open Beauty Facts</a>,{" "}
-            <a href="https://world.openpetfoodfacts.org">Open Pet Food Facts</a>
-            , and{" "}
-            <a href="https://world.openproductsfacts.org">
-              Open Products Facts
-            </a>
-            . Database:{" "}
-            <a href="https://opendatacommons.org/licenses/odbl/1-0/">ODbL</a>;
-            contents: DbCL; product images:{" "}
-            <a href="https://creativecommons.org/licenses/by-sa/3.0/">
-              CC BY-SA
-            </a>
-            . Community suggestions can be incomplete or incorrect; confirm them
-            before saving.
-          </p>
-        </section>
-      </form>
+            <p className="muted">
+              On iPhone, use Safari → Share → Add to Home Screen. Push reminders
+              require an installed Home Screen app and your permission. We will
+              only request permission when delivery is available and you choose
+              to enable it.
+            </p>
+          </section>
+          <button type="submit" className="primary" disabled={saving}>
+            {saving ? "Saving…" : "Save preferences"}
+          </button>
+          {message && (
+            <p role="status" className="notice">
+              {message}
+            </p>
+          )}
+          <SyncPanel state={sync} retry={retry} />
+          <section>
+            <h2>Data & storage</h2>
+            <p>
+              Items and photos sync with the same signed-in account. Updates are
+              checked on opening, focus, reconnect, and every 10 seconds while
+              visible. Offline changes stay on this device until they can be
+              uploaded.
+            </p>
+            <p className="muted">
+              JSON export includes records and photo references, not photo
+              files. Existing device-only entries migrate when that device opens
+              this version. Recovery copies are kept if you choose a cloud
+              version after a conflict.
+            </p>
+            <div className="inline">
+              <button
+                type="button"
+                onClick={() =>
+                  exportRecords(true).catch(() =>
+                    setMessage("Export failed. Try again."),
+                  )
+                }
+              >
+                <Download /> Export JSON
+              </button>
+              <button type="button" onClick={retry}>
+                Retry sync
+              </button>
+              <button
+                type="button"
+                onClick={async () => {
+                  const granted = await navigator.storage?.persist?.();
+                  setMessage(
+                    granted
+                      ? "Persistent device storage granted."
+                      : "The browser manages storage automatically. Export your records regularly.",
+                  );
+                }}
+              >
+                Keep device storage
+              </button>
+            </div>
+          </section>
+          <section>
+            <h2>Product data credits</h2>
+            <p>
+              Suggestions from{" "}
+              <a href="https://world.openfoodfacts.org">Open Food Facts</a>,{" "}
+              <a href="https://world.openbeautyfacts.org">Open Beauty Facts</a>,{" "}
+              <a href="https://world.openpetfoodfacts.org">
+                Open Pet Food Facts
+              </a>
+              , and{" "}
+              <a href="https://world.openproductsfacts.org">
+                Open Products Facts
+              </a>
+              . Database:{" "}
+              <a href="https://opendatacommons.org/licenses/odbl/1-0/">ODbL</a>;
+              contents: DbCL; product images:{" "}
+              <a href="https://creativecommons.org/licenses/by-sa/3.0/">
+                CC BY-SA
+              </a>
+              . Community suggestions can be incomplete or incorrect; confirm
+              them before saving.
+            </p>
+          </section>
+        </form>
+      </div>
     </>
   );
 }

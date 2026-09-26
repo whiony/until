@@ -269,7 +269,7 @@ test("keyboard viewport keeps the form beneath the native keyboard and focused c
     await page.locator(".editor-fields").evaluate((el) => el.scrollTop),
   ).toBeLessThan(before);
   const modal = await page.locator(".editor").boundingBox();
-  expect(modal!.y).toBe(24);
+  expect(modal!.y).toBe(0);
   expect(modal!.height).toBe(844);
   await page.screenshot({
     path: "test-results/item-form-keyboard-geometry.png",
@@ -279,6 +279,10 @@ test("keyboard viewport keeps the form beneath the native keyboard and focused c
     window.visualViewport!.dispatchEvent(new Event("resize"));
   });
   await notes.blur();
+  const after = await page
+    .locator(".editor-fields")
+    .evaluate((el) => el.scrollTop);
+  expect(Math.abs(after - (before - 100))).toBeLessThan(3);
   await expect(page.locator(".editor .form-footer")).toBeVisible();
   await expect(page.locator(".editor .form-footer")).toBeInViewport();
   await expect(name).toHaveValue("Keyboard appearance record");

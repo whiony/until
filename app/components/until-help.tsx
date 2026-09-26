@@ -59,7 +59,7 @@ export function Help({ label, text }: { label: string; text: string }) {
             setOpen(!open);
           }}
         >
-          ?
+          <span aria-hidden="true">?</span>
         </button>
       </PopoverTrigger>
       <PopoverContent

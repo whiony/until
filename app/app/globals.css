@@ -2559,3 +2559,58 @@ h1 {
 [data-theme=green] {
  --background:#f6f5ef; --foreground:#253831; --card:#fffefb; --card-foreground:#253831; --popover:#fffefb; --popover-foreground:#253831; --primary:#294d3b; --secondary:#edeedc; --secondary-foreground:#253831; --muted:#efeee7; --muted-foreground:#626c62; --accent:#e3ebc5; --accent-foreground:#253831; --border:#dedfd3; --input:#cbd0c3; --ring:#688a44;
 }
+
+/* Shared layout refinements: row-sized cards and bounded settings columns. */
+.cards { align-items: stretch; }
+.item-card { align-self: stretch; grid-template-rows: minmax(0,1fr) auto; }
+.item-card .card-main { align-content: start; }
+.item-card .countdown { align-items: center; }
+.item-card .countdown svg { margin-top: 0; }
+.photo:not(:has(img)), .item-card .card-main .photo:not(:has(img)) {
+  background: var(--secondary);
+  color: var(--primary);
+  display: grid;
+  place-items: center;
+}
+.photo:not(:has(img)) svg { width: 46%; height: 46%; }
+.settings-layout { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 24px; align-items: start; }
+.settings-layout .settings { width: 100%; max-width: none; min-width: 0; }
+@media (max-width:1200px) { .settings-layout { grid-template-columns: minmax(0,1fr); } .settings-layout .settings section { padding-right: max(26px,calc(100% - 664px)); } }
+@media (max-width:760px) { .settings-layout .settings section { padding: 20px; } }
+@media (min-width:761px) {
+  .as-list .item-card { grid-template-columns: minmax(0,1fr) 204px; }
+  .as-list .card-bottom { justify-content: center; }
+  .as-list .card-bottom button { display: inline-flex; flex-direction: row; align-items: center; justify-content: center; gap: 8px; width: auto; white-space: nowrap; }
+  .as-list .card-bottom button svg { flex: 0 0 18px; width: 18px; }
+}
+@media (min-width:761px) and (max-width:1100px) {
+  .as-list .item-card .card-main { grid-template-columns: 64px minmax(0,1fr); gap: 8px 12px; }
+  .as-list .item-card .card-main .photo { width: 64px; height: 64px; grid-row: 1 / 3; }
+  .as-list .item-card .card-status { grid-column: 2; grid-row: 2; }
+}
+.editor .field-help { position: relative; border: 0; background: transparent; }
+.editor .field-help > span { display: grid; place-items: center; width: 24px; height: 24px; margin: auto; border: 1px solid var(--border); border-radius: 50%; font-size: 12px; }
+@media (pointer:coarse) { .editor .field-help::after { content: ""; position: absolute; inset: -6px; } }
+@media (max-width:760px) {
+  /* Anchor every editor to the layout viewport, never to Safari's temporary
+     panning offset. Its card surface also covers the status-bar region. */
+  .editor.modal, .keyboard-open .editor.modal { top: 0 !important; height: var(--editor-layout-height,100svh) !important; max-height: var(--editor-layout-height,100svh) !important; }
+  .editor-fields, .keyboard-open .editor-fields { padding-bottom: calc(16px + var(--editor-scroll-tail,0px)); overflow-anchor: none; }
+  .topbar { position: fixed; inset: 0 0 auto; height: calc(52px + var(--safe-top)); }
+  .workspace { padding-top: calc(52px + var(--safe-top)); }
+  .app-shell::before { height: calc(52px + var(--safe-top)); z-index: 39; }
+  .detail.modal { max-height: calc(100svh - var(--safe-top) - var(--safe-bottom,env(safe-area-inset-bottom,0px)) - 32px); top: calc((100svh + var(--safe-top) - var(--safe-bottom,env(safe-area-inset-bottom,0px))) / 2); overflow-y: auto; overscroll-behavior: contain; padding-bottom: 24px !important; }
+}
+@supports (-webkit-touch-callout:none) {
+  @media (display-mode:standalone) and (max-width:760px) {
+    :root { --safe-top: max(env(safe-area-inset-top,0px),20px); }
+    .topbar { padding-top: calc(4px + var(--safe-top)); }
+    .app-shell::before { height: calc(52px + var(--safe-top)); }
+  }
+}
+/* Separate surfaces by lightness, keeping semantic urgency colors unchanged. */
+[data-theme=green] { --background:#f3f2eb; --secondary:#e7ebd4; --muted:#e9e8df; --muted-foreground:#586359; --border:#d5d8ca; }
+[data-theme=peach] { --background:#f8eee5; --secondary:#f1ddcc; --muted:#eee0d5; --muted-foreground:#69554c; --border:#ddcabc; }
+[data-theme=lavender] { --background:#f0ecf5; --secondary:#e5dcef; --muted:#e5deed; --muted-foreground:#61566d; --border:#d3c8df; }
+[data-theme=blue] { --background:#eaf1f6; --secondary:#d8e8f2; --muted:#dfe8ef; --muted-foreground:#526571; --border:#c4d5e1; }
+.item-card.undated .countdown, .undated-section .countdown, .date-caption { color: var(--muted-foreground); }

@@ -148,7 +148,7 @@ test("filtered record counts, physical-unit totals, compact history and equal de
   expect(
     after.items.find((i: { id: string }) => i.id === fixture.items[0].id),
   ).toMatchObject(fixture.items[0]);
-  await page.getByRole("button", { name: "Close", exact: true }).click();
+  await expect(detail).toHaveCount(0);
   await page.getByRole("button", { name: "Show list", exact: true }).click();
   await expect(multiple.locator(".list-quantity")).toHaveText("3 units");
   for (const row of [single, multiple]) {
