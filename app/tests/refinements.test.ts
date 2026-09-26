@@ -22,12 +22,13 @@ describe("demo fixtures and counts", () => {
     );
     expect(r.items.length).toBe(9);
   });
-  it("refuses demo persistence and labels physical quantities honestly", () => {
+  it("refuses demo persistence and counts visible records independently of unit quantities", () => {
     const r = demoRecords();
     expect(() => assertRealRecords(r)).toThrow("Demo");
     expect(() => assertRealRecords(emptyRecords())).not.toThrow();
-    expect(itemCount([r.items[1]])).toBe("1 unit · 1 group");
-    expect(itemCount(r.items.slice(0, 2))).toBe("3 units · 2 groups");
+    expect(itemCount([])).toBe("0 items");
+    expect(itemCount([r.items[1]])).toBe("1 item");
+    expect(itemCount(r.items.slice(0, 2))).toBe("2 items");
   });
 });
 describe("editor validation", () => {

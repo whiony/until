@@ -1,4 +1,4 @@
-import {expandSection} from "./editor-helpers";
+import { expandSection } from "./editor-helpers";
 import { test, expect } from "@playwright/test";
 test("aligned grid, compact list, invariant mobile cards and expired details", async ({
   page,
@@ -20,10 +20,10 @@ test("aligned grid, compact list, invariant mobile cards and expired details", a
       bottom: el.querySelector(".card-bottom")!.getBoundingClientRect().top,
     })),
   );
-  for (const x of row.filter((x) => x.top === row[0].top)) {
-    expect(x.status).toBe(row[0].status);
-    expect(x.bottom).toBe(row[0].bottom);
+  for (const x of row) {
+    expect(x.bottom - x.status).toBeLessThan(120);
   }
+  expect((await cards.first().boundingBox())!.height).toBeLessThan(300);
   await expect(cards.first().locator(".date-caption")).toContainText(
     /\d{2} [A-Z][a-z]{2} \d{4}/,
   );
@@ -41,10 +41,8 @@ test("aligned grid, compact list, invariant mobile cards and expired details", a
   );
   await expect(page.locator(".detail dd")).toContainText([
     "best before",
-    "not recorded",
     "unopened",
-    "not applicable yet",
-    "active",
+    "4 units",
   ]);
   const edit = await page
     .getByRole("button", { name: "Edit details", exact: true })
@@ -151,7 +149,7 @@ test("field help clears controls and optional sections remain usable", async ({
       "Photos & label recognition",
       "More details",
     ])
-      await expandSection(page,name);
+      await expandSection(page, name);
     expect(
       await page
         .locator(".editor")

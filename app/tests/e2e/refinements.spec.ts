@@ -39,8 +39,9 @@ test("demo is visibly isolated from real records, cloud, exports and reload", as
   await page.getByRole("tab", { name: /All items/ }).click();
   await expect(page.locator(".demo-tag")).toHaveCount(9);
   await expect(
-    page.getByText("16 units · 9 groups"),
-  ).toBeVisible();
+    page.locator(".section-heading > span"),
+  ).toHaveCount(0);
+  await expect(page.getByRole("tab", {name: /All items/})).toContainText("16");
   await expect(
     page.getByRole("button", { name: "Add item", exact: true }),
   ).toBeDisabled();
@@ -159,7 +160,7 @@ test("invalid submission focuses the relevant field and retains typed name and p
     .click();
   await page.getByRole("tab", { name: /All items/ }).click();
   await expect(
-    page.getByText("2 units · 1 group"),
+    page.locator(".footer-quantity").filter({hasText: "×2 unopened"}),
   ).toBeVisible();
 });
 test("real product OCR suggests text only after explicit action and confirmation", async ({
@@ -268,7 +269,7 @@ test("empty states, filtered quantity counts, summary and toolbar placement rema
   await page.getByRole("tab", { name: /All items/ }).click();
   await page.getByLabel("Search items").fill("yogurt");
   await expect(
-    page.getByText("3 units · 2 groups"),
+    page.locator(".section-heading > span").filter({hasText: /^2 items$/}),
   ).toBeVisible();
   const sort = await page
       .getByLabel("Sort Items", { exact: true })

@@ -42,7 +42,7 @@ test("real item lifecycle, reload, mobile layout and manual barcode fallback", a
   ).toBeVisible();
   await page.getByRole("button", { name: "View Greek yogurt" }).click();
   await page.getByRole("button", { name: "Open one", exact: true }).click();
-  await expect(page.getByText("2 · active")).toBeVisible();
+  await expect(page.locator(".detail dd").filter({ hasText: /^2 units$/ })).toBeVisible();
 
   await page.getByRole("button", { name: "Close", exact: true }).click();
   await expect(

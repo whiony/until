@@ -107,7 +107,9 @@ test("two independent account sessions sync creates, edits, status, offline chan
   );
   await remoteCount(a, 3);
   await a.getByRole("button", { name: "View Desktop cream" }).click();
-  await a.getByRole("button", { name: "Used one", exact: true }).click();
+  await a
+    .getByRole("button", { name: "Mark one as used", exact: true })
+    .click();
   await a.getByRole("button", { name: "Close", exact: true }).click();
   await expect(
     b.getByRole("button", { name: "View Desktop cream" }),

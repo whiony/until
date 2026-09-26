@@ -269,14 +269,17 @@ export default function UntilApp() {
                       {[p.brand, p.size].filter(Boolean).join(" · ")}
                     </p>
                   )}
-                  <p className="list-quantity muted">
-                    {i.quantity} {i.quantity === 1 ? "unit" : "units"} ·{" "}
-                    {i.status === "active"
-                      ? i.openedDate
-                        ? "opened"
-                        : "unopened"
-                      : i.status}
-                  </p>
+                  {(i.status === "active" || i.quantity > 1) && (
+                    <p className="list-quantity muted">
+                      {i.quantity} {i.quantity === 1 ? "unit" : "units"}
+                      {i.status === "active" ? " · " : ""}
+                      {i.status === "active"
+                        ? i.openedDate
+                          ? "opened"
+                          : "unopened"
+                        : ""}
+                    </p>
+                  )}
                 </div>
                 <div className="countdown">
                   {i.status === "active" ? (
@@ -306,14 +309,16 @@ export default function UntilApp() {
                 <ArrowUpRight className="card-arrow" size={19} />
               </button>
               <div className="card-bottom">
-                <span className="footer-quantity">
-                  ×{i.quantity}{" "}
-                  {i.status === "active"
-                    ? i.openedDate
-                      ? "opened"
-                      : "unopened"
-                    : i.status}
-                </span>
+                {(i.status === "active" || i.quantity > 1) && (
+                  <span className="footer-quantity">
+                    ×{i.quantity}{" "}
+                    {i.status === "active"
+                      ? i.openedDate
+                        ? "opened"
+                        : "unopened"
+                      : "units"}
+                  </span>
+                )}
                 {i.status === "active" ? (
                   <button
                     disabled={busy || demo || i.quantity < 1}
@@ -585,8 +590,9 @@ export default function UntilApp() {
                 {view === "soon" && (
                   <div className="heads-up" aria-label="Shelf summary">
                     <span>
-                      <strong>{units(attention)}</strong> units need attention{" "}
-                      <small>(expired, upcoming or undated)</small>
+                      <strong>{units(attention)}</strong>{" "}
+                      {units(attention) === 1 ? "unit needs" : "units need"}{" "}
+                      attention <small>(expired, upcoming or undated)</small>
                     </span>
                     <span>
                       <strong>{units(order(active))}</strong> active{" "}
@@ -599,7 +605,7 @@ export default function UntilApp() {
                   <>
                     <div className="section-heading">
                       <h2>Next to expire</h2>
-                      <span>{itemCount(order(soon))}</span>
+                      {filtered && <span>{itemCount(order(soon))}</span>}
                     </div>
                     {order(soon).length ? (
                       cards(soon)
@@ -643,9 +649,7 @@ export default function UntilApp() {
                       <section className="expired-section">
                         <div className="section-heading">
                           <h2>Past the recorded date</h2>
-                          <span className="pill">
-                            {itemCount(order(expired))}
-                          </span>
+                          {filtered && <span>{itemCount(order(expired))}</span>}
                         </div>
                         <p className="muted">
                           Best-before dates describe quality, not an automatic
@@ -658,7 +662,7 @@ export default function UntilApp() {
                       <section className="undated-section">
                         <div className="section-heading">
                           <h2>Needs a date</h2>
-                          <span>{itemCount(order(undated))}</span>
+                          {filtered && <span>{itemCount(order(undated))}</span>}
                         </div>
                         <p className="muted">
                           A small reminder to check the label.
@@ -673,7 +677,10 @@ export default function UntilApp() {
                       <h2>
                         {view === "history" ? "Your history" : "Your shelf"}
                       </h2>
-                      <span>{itemCount(shown)}</span>
+                      {(filtered ||
+                        (view === "all" && status !== "active")) && (
+                        <span>{itemCount(shown)}</span>
+                      )}
                     </div>
                     {(() => {
                       const items = records.items.filter((i) =>
@@ -801,75 +808,96 @@ export default function UntilApp() {
       {selected && selectedProduct && !editor && (
         <Dialog open onOpenChange={(v) => !v && setDetail(null)}>
           <DialogContent
+            tabIndex={-1}
+            onOpenAutoFocus={(event) => {
+              event.preventDefault();
+              document
+                .querySelector<HTMLElement>(".detail")
+                ?.focus({ preventScroll: true });
+            }}
             className={`modal detail ${selected.status === "active" && urgency(selected, records.settings.soonDays, now) === "expired" ? "detail-expired" : ""}`}
           >
-            <DialogTitle>
-              {selectedProduct.name}
-              {demo ? " · Demo" : ""}
-            </DialogTitle>
-            <DialogDescription>
-              {[
-                selectedProduct.brand,
-                selectedProduct.category,
-                selected.location,
-              ]
-                .filter(Boolean)
-                .join(" · ")}
-            </DialogDescription>
-            <Photo
-              id={selectedProduct.photoId}
-              category={selectedProduct.category}
-              name={selectedProduct.name}
-            />
-            <h2
-              className={`detail-countdown ${urgency(selected, records.settings.soonDays, now)}`}
-            >
-              {selected.status === "active"
-                ? countdown(selected, now)
-                : selected.status === "used"
-                  ? "Used"
-                  : "Discarded"}
-            </h2>
+            <div className="detail-overview">
+              <Photo
+                id={selectedProduct.photoId}
+                category={selectedProduct.category}
+                name={selectedProduct.name}
+              />
+              <div className="detail-identity">
+                <DialogTitle>
+                  {selectedProduct.name}
+                  {demo ? " · Demo" : ""}
+                </DialogTitle>
+                <DialogDescription>
+                  {[
+                    selectedProduct.brand,
+                    selectedProduct.category,
+                    selected.location,
+                  ]
+                    .filter(Boolean)
+                    .join(" · ")}
+                </DialogDescription>
+                {selectedProduct.size && (
+                  <p className="muted">{selectedProduct.size}</p>
+                )}
+                <h2
+                  className={`detail-countdown ${urgency(selected, records.settings.soonDays, now)}`}
+                >
+                  {selected.status === "active"
+                    ? countdown(selected, now)
+                    : selected.status === "used"
+                      ? "Used"
+                      : "Discarded"}
+                </h2>
+              </div>
+            </div>
             <dl>
-              <div>
-                <dt>Printed date</dt>
-                <dd>
-                  {displayDate(selected.printedDate) || "not recorded"} ·{" "}
-                  {selected.dateKind}
-                </dd>
-              </div>
-              <div>
-                <dt>After-opening rule</dt>
-                <dd>
-                  {selected.rule
-                    ? `${selected.rule.amount} ${selected.rule.unit}`
-                    : "not recorded"}
-                </dd>
-              </div>
-              <div>
-                <dt>Opened</dt>
-                <dd>
-                  {displayDate(selected.openedDate) ||
-                    (selected.status === "active"
-                      ? "unopened"
-                      : "opening date not recorded")}
-                </dd>
-              </div>
-              <div>
-                <dt>After-opening deadline</dt>
-                <dd>
-                  {displayDate(deadline(selected).opening) ||
-                    (selected.status === "active"
-                      ? "not applicable yet"
-                      : "not recorded")}
-                </dd>
-              </div>
+              {selected.printedDate && (
+                <div>
+                  <dt>Printed date</dt>
+                  <dd>
+                    {displayDate(selected.printedDate)}
+                    {selected.dateKind !== "unspecified"
+                      ? ` · ${selected.dateKind}`
+                      : ""}
+                  </dd>
+                </div>
+              )}
+              {selected.rule && (
+                <div>
+                  <dt>After-opening rule</dt>
+                  <dd>
+                    {selected.rule.amount} {selected.rule.unit}
+                  </dd>
+                </div>
+              )}
+              {(selected.openedDate || selected.status === "active") && (
+                <div>
+                  <dt>Opened</dt>
+                  <dd>{displayDate(selected.openedDate) || "unopened"}</dd>
+                </div>
+              )}
+              {deadline(selected).opening && (
+                <div>
+                  <dt>After-opening deadline</dt>
+                  <dd>{displayDate(deadline(selected).opening)}</dd>
+                </div>
+              )}
               <div>
                 <dt>Quantity</dt>
                 <dd>
-                  {selected.quantity} · {selected.status}
+                  {selected.quantity}{" "}
+                  {selected.quantity === 1 ? "unit" : "units"}
                 </dd>
               </div>
+              {selected.status !== "active" && selected.completedAt && (
+                <div>
+                  <dt>
+                    {selected.status === "used" ? "Used on" : "Discarded on"}
+                  </dt>
+                  <dd>{historyDate(selected)}</dd>
+                </div>
+              )}
               {selected.purchaseDate && (
                 <div>
                   <dt>Purchased</dt>
@@ -883,14 +911,14 @@ export default function UntilApp() {
                 </div>
               )}
             </dl>
-            <p className="notice">
-              {selected.status !== "active"
-                ? "Historical record. Add again to track a new item."
-                : deadline(selected).date
+            {selected.status === "active" && (
+              <p className="notice">
+                {deadline(selected).date
                   ? `The ${deadline(selected).controls} controls this countdown because it is the earliest applicable date.`
                   : "Add a date to see a countdown."}
-            </p>
-            {selected.dateKind === "best before" && (
+              </p>
+            )}
+            {selected.printedDate && selected.dateKind === "best before" && (
               <p className="muted">
                 Best before is a quality date, not an automatic safety cutoff.
               </p>
@@ -945,7 +973,7 @@ export default function UntilApp() {
                       )
                     }
                   >
-                    <Check /> Used one
+                    <Check /> Mark one as used
                   </button>
                   {!selected.openedDate && (
                     <button
@@ -974,7 +1002,8 @@ export default function UntilApp() {
                 </>
               )}
               <button onClick={() => setEditor({ product: selectedProduct })}>
-                <Plus /> Add another
+                <Plus />{" "}
+                {selected.status === "active" ? "Add another" : "Add again"}
               </button>
               <button
                 onClick={() =>

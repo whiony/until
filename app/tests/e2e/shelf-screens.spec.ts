@@ -85,9 +85,7 @@ test("history uses recorded event dates, honest counts, independent sorting and 
     "C used earlier",
     "A legacy used item",
   ]);
-  await expect(page.locator(".section-heading")).toContainText(
-    "3 units · 3 groups",
-  );
+  await expect(page.locator(".section-heading")).toContainText("Your history");
   await expect(
     page.locator(".item-card").last().locator(".date-caption"),
   ).toHaveCount(0);
@@ -97,10 +95,10 @@ test("history uses recorded event dates, honest counts, independent sorting and 
   await expect(page.getByText("Recorded as used", { exact: true })).toHaveCount(
     0,
   );
-  await expect(page.locator(".list-quantity").first()).toBeHidden();
+  await expect(page.locator(".list-quantity")).toHaveCount(0);
   await page.getByRole("button", { name: "Show list", exact: true }).click();
-  await expect(page.locator(".list-quantity").first()).toBeVisible();
-  await expect(page.locator(".footer-quantity").first()).toBeHidden();
+  await expect(page.locator(".list-quantity")).toHaveCount(0);
+  await expect(page.locator(".footer-quantity")).toHaveCount(0);
   await page.getByLabel("Search items").fill("A legacy");
   await page.getByRole("button", { name: "Add again", exact: true }).click();
   await page
@@ -114,17 +112,13 @@ test("history uses recorded event dates, honest counts, independent sorting and 
   ).toMatchObject(fixture.items[0]);
   await page.getByRole("tab", { name: /All items/ }).click();
   await page.getByLabel("Search items").fill("Long active");
-  await expect(page.locator(".section-heading")).toContainText(
-    "2 units · 1 group",
-  );
+  await expect(page.locator(".section-heading")).toContainText("1 item");
   const used = page.getByRole("button", {
     name: "Mark one as used",
     exact: true,
   });
   await used.click();
-  await expect(page.locator(".section-heading")).toContainText(
-    "1 unit · 1 group",
-  );
+  await expect(page.locator(".section-heading")).toContainText("1 item");
   await used.click();
   await expect(used).toHaveCount(0);
   await page.getByRole("tab", { name: /History/ }).click();

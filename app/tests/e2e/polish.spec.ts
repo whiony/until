@@ -36,7 +36,8 @@ test("history-only shelf is empty, historical labels are honest, and help preser
   ).toHaveCount(0);
   await page.getByRole("tab", { name: "History", exact: true }).click();
   const card = page.locator(".item-card");
-  await expect(card).toContainText("×1 used");
+  await expect(card.locator(".countdown")).toHaveText("Used");
+  await expect(card.locator(".footer-quantity")).toHaveCount(0);
   await expect(card).not.toContainText("unopened");
   await expect(card).not.toContainText("on your shelf");
   await expect(card).not.toContainText("Add a date");
@@ -44,7 +45,7 @@ test("history-only shelf is empty, historical labels are honest, and help preser
   await expect(page.locator(".detail-countdown")).toHaveText("Used");
   await expect(
     page.getByText("Historical record.", { exact: false }),
-  ).toBeVisible();
+  ).toHaveCount(0);
   await page.getByRole('button',{name:'Close',exact:true}).click();
   await expect(page.getByRole('button',{name:'Add again',exact:true})).toBeVisible();
   await page.getByRole('button',{name:'Add item',exact:true}).click();
@@ -56,7 +57,7 @@ test("history-only shelf is empty, historical labels are honest, and help preser
   await page.getByRole('button',{name:'Close',exact:true}).click();
   await page.getByRole('tab',{name:'History',exact:true}).click();
   const discarded=page.locator('.item-card').filter({hasText:'Discard sample'});
-  await expect(discarded).toContainText('×1 discarded');
+  await expect(discarded.locator('.countdown')).toHaveText('Discarded');
   await expect(discarded).not.toContainText('unopened');
   await expect(discarded).not.toContainText('on your shelf');
 });
