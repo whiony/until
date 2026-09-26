@@ -169,14 +169,14 @@ test("actual photo OCR exposes text and requires confirmation", async ({
   await expect(page.getByText(/Extracted text/)).toBeVisible({
     timeout: 75000,
   });
-  await expect(page.getByLabel("Printed date", { exact: true })).toHaveValue(
-    "",
+  await expect(page.getByLabel("Printed date", { exact: true })).toHaveText(
+    "Add a date",
   );
   await page
-    .getByRole("button", { name: "Confirm 2027-08-12", exact: true })
+    .getByRole("button", { name: "Confirm 12 Aug 2027", exact: true })
     .click();
-  await expect(page.getByLabel("Printed date", { exact: true })).toHaveValue(
-    "2027-08-12",
+  await expect(page.getByLabel("Printed date", { exact: true })).toHaveText(
+    "12 Aug 2027",
   );
   await page
     .getByRole("button", { name: "Confirm 7 days", exact: true })

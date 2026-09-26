@@ -2203,3 +2203,31 @@ h1 {
  .as-list .list-quantity { display: none; }
 }
 @supports (-webkit-touch-callout:none) { @media (display-mode:standalone) and (max-width:760px) { .topbar { padding-top: calc(4px + max(var(--safe-top),20px)); } } }
+/* Form controls own their hit areas; label rows are not interactive containers. */
+.editor .field-label { width: fit-content; max-width: 100%; min-height: 32px !important; }
+.editor .field-label > label { margin: 0; padding: 0; }
+.editor .field-help { flex: 0 0 32px; width: 32px; min-width: 32px; min-height: 32px; height: 32px; padding: 0; border: 1px solid var(--border); }
+.field-help-content { width: min(300px, calc(100vw - 24px)); max-height: var(--radix-popover-content-available-height); overflow-y: auto; }
+.editor .photo-upload { width: 100%; height: 46px; min-height: 46px; white-space: nowrap; }
+.editor .photo-upload svg { flex-shrink: 0; }
+.editor .duration-controls { display: grid; grid-template-columns: minmax(0,1fr) minmax(100px,.7fr); gap: 10px; }
+.editor .duration-controls .field { margin: 0; }
+.editor .duration-controls .field-label { display: none !important; }
+.editor button.date-trigger { display: flex; align-items: center; justify-content: space-between; width: 100%; min-height: 46px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--card); font-size: 16px; font-weight: 400; }
+.editor .date-trigger.unset { color: var(--muted-foreground); }
+.date-picker { width: fit-content; max-width: calc(100vw - 24px); max-height: var(--radix-popover-content-available-height); overflow-y: auto; padding: 12px; }
+.date-picker .rdp-root { --rdp-accent-color: #294d3b; --rdp-day-width: 36px; --rdp-day-height: 36px; --rdp-day_button-width: 36px; --rdp-day_button-height: 36px; --rdp-nav-height: 40px; }
+.date-picker .rdp-root button { padding: 0; border-radius: 6px; min-height: 36px; }
+.date-picker .rdp-dropdown { min-height: 36px; }
+.date-picker > button { width: 100%; margin-top: 8px; min-height: 40px; }
+@media (max-width:760px) {
+ .keyboard-open .editor .form-footer { display: none; }
+ .editor .photo-section .field-label { font-size: 12px; align-items: center; gap: 4px; }
+ .editor .photo-section .field-help { flex-basis: 32px; }
+ .editor .photo-upload { font-size: 12px; gap: 6px; padding: 8px; }
+}
+.editor .field > label { font-weight: 600; }
+.editor .field:focus-within .photo-upload { outline: none; }
+.editor .photo-upload:focus-visible { outline: 2px solid var(--ring); outline-offset: 3px; }
+/* Keep anchored form popovers stable during rapid clicks and touch input. */
+.field-help-content, .date-picker { animation: none; }

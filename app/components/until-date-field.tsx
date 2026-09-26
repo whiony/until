@@ -1,11 +1,13 @@
 "use client";
-import { useState, useId, type InputHTMLAttributes } from "react";
+import { useState, useId, useRef, type InputHTMLAttributes } from "react";
 import { CalendarDays } from "lucide-react";
+import { DayPicker } from "react-day-picker";
+import "react-day-picker/style.css";
 import { Popover, PopoverTrigger, PopoverContent } from "./ui/popover";
 import { Help } from "./until-help";
-import { validDate } from "@/lib/until/domain";
+import { displayDate, today, validDate } from "@/lib/until/domain";
 
-// Native pickers may change their input when dismissed. Only Apply commits a draft.
+// Navigation and dismissal do not commit a date. Only selecting a day or Clear does.
 export function DateField({
   label,
   value,
@@ -20,97 +22,85 @@ export function DateField({
   help?: string;
   error?: React.ReactNode;
 } & Omit<InputHTMLAttributes<HTMLInputElement>, "value" | "onChange">) {
-  const pickerId = useId();
-  const [open, setOpen] = useState(false),
-    [draft, setDraft] = useState(value),
-    [invalid, setInvalid] = useState(false);
-  function changeOpen(next: boolean) {
-    if (next) {
-      setDraft(value);
-      setInvalid(false);
-    }
-    setOpen(next);
-  }
+  const pickerId = useId(),
+    trigger = useRef<HTMLButtonElement>(null);
+  const [open, setOpen] = useState(false);
+  const [boundary, setBoundary] = useState<Element | undefined>();
+  const selected =
+    value && validDate(value) ? new Date(`${value}T12:00:00`) : undefined;
   return (
     <div className="field date-field">
       <span className="field-label">
-        <label htmlFor={props.id}>{label}</label>
+        <span>{label}</span>
         {help && <Help label={label} text={help} />}
       </span>
-      <Popover open={open} onOpenChange={changeOpen}>
-        <div className="date-trigger">
-          <PopoverTrigger asChild>
-            <input
-              {...props}
-              type="text"
-              role="combobox"
-              readOnly
-              onKeyDown={(e) => {
-                if (e.key === "Enter" || e.key === " ") {
-                  e.preventDefault();
-                  changeOpen(true);
-                }
-              }}
-              value={value}
-              placeholder="Add a date"
-              aria-label={label}
-              aria-haspopup="dialog"
-              aria-controls={pickerId}
-              aria-expanded={open}
-            />
-          </PopoverTrigger>
-          <CalendarDays aria-hidden="true" size={18} />
-        </div>
+      <Popover
+        open={open}
+        onOpenChange={(next) => {
+          if (next)
+            setBoundary(trigger.current?.closest(".editor") || undefined);
+          setOpen(next);
+        }}
+      >
+        <PopoverTrigger asChild>
+          <button
+            ref={trigger}
+            type="button"
+            role="combobox"
+            id={props.id}
+            disabled={props.disabled}
+            className={`date-trigger ${value ? "" : "unset"}`}
+            aria-label={label}
+            aria-invalid={props["aria-invalid"]}
+            aria-describedby={props["aria-describedby"]}
+            aria-haspopup="dialog"
+            aria-controls={pickerId}
+            aria-expanded={open}
+          >
+            {displayDate(value) || "Add a date"}
+            <CalendarDays aria-hidden="true" size={18} />
+          </button>
+        </PopoverTrigger>
         <PopoverContent
           id={pickerId}
           role="dialog"
           aria-label={`${label} picker`}
           className="date-picker"
-          onOpenAutoFocus={(e) => e.preventDefault()}
+          align="start"
+          collisionBoundary={boundary}
+          collisionPadding={12}
         >
-          <label className="field">
-            <span>{label}</span>
-            <input
-              type="date"
-              min="1900-01-01"
-              max="2200-12-31"
-              aria-label={`Choose ${label.toLowerCase()}`}
-              value={draft}
-              onChange={(e) => {
-                setDraft(e.target.value);
-                setInvalid(false);
-              }}
-            />
-          </label>
-          {invalid && <p role="alert">Choose a valid calendar date.</p>}
-          <div className="date-picker-actions">
-            <button
-              type="button"
-              onClick={() => {
-                onChange("");
+          <DayPicker
+            key={open ? "open" : "closed"}
+            mode="single"
+            selected={selected}
+            defaultMonth={selected}
+            captionLayout="dropdown"
+            startMonth={new Date(1900, 0)}
+            endMonth={new Date(2200, 11)}
+            autoFocus
+            onSelect={(day) => {
+              if (day) {
+                onChange(today(day));
                 setOpen(false);
-              }}
-            >
-              Clear date
-            </button>
-            <button type="button" onClick={() => setOpen(false)}>
-              Cancel date
-            </button>
-            <button
-              type="button"
-              className="primary"
-              onClick={() => {
-                if (draft && !validDate(draft)) {
-                  setInvalid(true);
-                  return;
-                }
-                onChange(draft);
-                setOpen(false);
-              }}
-            >
-              Apply date
-            </button>
-          </div>
+              }
+            }}
+            labels={{
+              labelMonthDropdown: () => "Month",
+              labelYearDropdown: () => "Year",
+              labelDayButton: (day) => `Choose ${displayDate(today(day))}`,
+            }}
+          />
+          <button
+            type="button"
+            disabled={!value}
+            onClick={() => {
+              onChange("");
+              setOpen(false);
+            }}
+          >
+            Clear date
+          </button>
         </PopoverContent>
       </Popover>
       {error}

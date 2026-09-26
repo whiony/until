@@ -23,7 +23,7 @@ export function Choice({
   options: (string | { value: string; label: string })[];
 }) {
   return (
-    <label className="field">
+    <div className="field">
       <span className="field-label">
         {label}
         {help && <Help label={label} text={help} />}
@@ -43,7 +43,7 @@ export function Choice({
           })}
         </SelectContent>
       </Select>
-    </label>
+    </div>
   );
 }
 export function Check({
@@ -106,6 +106,9 @@ export function EditableChoice({
         <label className="field">
           <span>Custom {label.toLowerCase()}</span>
           <input
+            name={`until-custom-${label.toLowerCase()}`}
+            autoComplete="off"
+            autoCorrect="off"
             autoFocus
             maxLength={100}
             value={value}

@@ -21,7 +21,7 @@ test("history-only shelf is empty, historical labels are honest, and help preser
   await page
     .getByRole("button", { name: "Help: Printed date", exact: true })
     .click();
-  await expect(page.getByRole("note")).toContainText("earlier");
+  await expect(page.getByRole("note")).toContainText("printed on the packaging");
   await page.keyboard.press("Escape");
   await expect(name).toHaveValue("History sample");
   await page
@@ -258,8 +258,8 @@ test("scanner supports torch cleanup, decodes a real barcode and lookup failure 
     .getByRole("button", { name: "Use these details", exact: true })
     .click();
   await expect(page.getByLabel("Product name *")).toHaveValue("Found product");
-  await expect(page.getByLabel("Printed date", { exact: true })).toHaveValue(
-    "",
+  await expect(page.getByLabel("Printed date", { exact: true })).toHaveText(
+    "Add a date",
   );
   await page
     .getByRole("button", { name: "Add item", exact: true })

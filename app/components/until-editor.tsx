@@ -27,6 +27,7 @@ import { Photo } from "./until-photo";
 import { Scanner } from "./until-scanner";
 import {
   categories,
+  displayDate,
   locations,
   newId,
   stamp,
@@ -115,6 +116,7 @@ export function Editor({
   const [cropSource, setCropSource] = useState<Blob | null>(null);
   const [issue, setIssue] = useState<FieldIssue | null>(null);
   const formRef = useRef<HTMLFormElement>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
   const invalid = (field: string) => ({
     id: field,
     name: `until-${field}`,
@@ -162,6 +164,11 @@ export function Editor({
   const [recognition, setRecognition] = useState<Recognition | null>(null);
   const [ocrBusy, setOcrBusy] = useState(false);
   const [language, setLanguage] = useState("eng");
+  const [durationUnit, setDurationUnit] = useState<Duration["unit"]>(
+    group.rule?.unit || "days",
+  );
+  const productFile = useRef<HTMLInputElement>(null),
+    labelFile = useRef<HTMLInputElement>(null);
   const [dateArea, setDateArea] = useState<"whole" | "top" | "bottom">("whole");
   const [originalProduct, setOriginalProduct] = useState<Blob | null>(null);
   const [ack, setAck] = useState(false);
@@ -321,7 +328,14 @@ export function Editor({
         if (!v) requestClose();
       }}
     >
-      <DialogContent className="editor modal">
+      <DialogContent
+        className="editor modal"
+        ref={dialogRef}
+        onOpenAutoFocus={(event) => {
+          event.preventDefault();
+          dialogRef.current?.focus({ preventScroll: true });
+        }}
+      >
         <DialogTitle>
           {item ? "Edit item" : initialProduct ? "Add another" : "Add item"}
         </DialogTitle>
@@ -338,11 +352,12 @@ export function Editor({
                 {error}
               </p>
             )}
-            <label className="field">
-              <span>Product name *</span>
+            <div className="field">
+              <label htmlFor="product-name">Product name *</label>
               <input
                 {...invalid("product-name")}
                 type="text"
+                autoCorrect="off"
                 required
                 maxLength={200}
                 value={product.name}
@@ -350,7 +365,7 @@ export function Editor({
                 onChange={(e) => p({ name: e.target.value })}
               />
               {fieldError("product-name")}
-            </label>
+            </div>
             {!item && (
               <section className="scan-compact">
                 <div className="inline">
@@ -402,21 +417,30 @@ export function Editor({
             >
               <div className="form-grid">
                 <div>
-                  <label className="field">
+                  <div className="field">
                     <span className="field-label">
                       Product photo
                       <Help
                         label="Product photo"
-                        text="JPEG, PNG or WebP, up to 12 MB. Keep the name visible for recognition."
+                        text="Show the product and its name. This helps recognize it and makes it easy to spot in your shelf."
                       />
                     </span>
-                    <span className="photo-upload">
+                    <button
+                      type="button"
+                      className="photo-upload"
+                      aria-label={
+                        product.photoId
+                          ? "Replace product photo"
+                          : "Choose product photo"
+                      }
+                      onClick={() => productFile.current?.click()}
+                    >
                       <Camera size={18} />{" "}
-                      {product.photoId
-                        ? "Replace photo"
-                        : "Choose product photo"}
-                    </span>
+                      {product.photoId ? "Replace photo" : "Choose photo"}
+                    </button>
                     <input
+                      ref={productFile}
+                      tabIndex={-1}
                       className="file-input"
                       aria-label="Product photo"
                       type="file"
@@ -427,7 +451,7 @@ export function Editor({
                         void upload(file, false);
                       }}
                     />
-                  </label>
+                  </div>
                   <small className="photo-purpose">Recognize the item</small>
                   {product.photoId && (
                     <Photo
@@ -473,21 +497,32 @@ export function Editor({
                   )}
                 </div>
                 <div>
-                  <label className="field">
+                  <div className="field">
                     <span className="field-label">
                       Label photo
                       <Help
                         label="Label photo"
-                        text="JPEG, PNG or WebP, up to 12 MB. The original label photo is kept."
+                        text="Show the printed date and any instructions for use after opening. Keep the text clear and readable."
                       />
                     </span>
-                    <span className="photo-upload">
+                    <button
+                      type="button"
+                      className="photo-upload"
+                      aria-label={
+                        group.packagingPhotoId
+                          ? "Replace label photo"
+                          : "Choose label photo"
+                      }
+                      onClick={() => labelFile.current?.click()}
+                    >
                       <Camera size={18} />{" "}
                       {group.packagingPhotoId
-                        ? "Replace label photo"
-                        : "Choose label photo"}
-                    </span>
+                        ? "Replace photo"
+                        : "Choose photo"}
+                    </button>
                     <input
+                      ref={labelFile}
+                      tabIndex={-1}
                       className="file-input"
                       aria-label="Label photo"
                       type="file"
@@ -498,7 +533,7 @@ export function Editor({
                         void upload(file, true);
                       }}
                     />
-                  </label>
+                  </div>
                   <small className="photo-purpose">
                     Read the date and instructions
                   </small>
@@ -584,10 +619,10 @@ export function Editor({
                             confirmedAt: stamp(),
                           },
                         });
-                        setInfo(`Confirmed printed date: ${d}`);
+                        setInfo(`Confirmed printed date: ${displayDate(d)}`);
                       }}
                     >
-                      Confirm {d}
+                      Confirm {displayDate(d)}
                     </button>
                   ))}
                   {recognition.rules.map((r, i) => (
@@ -627,15 +662,19 @@ export function Editor({
                   label="Printed date"
                   value={group.printedDate}
                   onChange={(value) => g({ printedDate: value })}
-                  help="Optional date printed on the package. The earlier printed or after-opening date is tracked."
+                  help="Enter the date printed on the packaging. Leave it empty if there is no date."
                   error={fieldError("printed-date")}
                 />
                 <Choice
-                  help="Best before is a quality date; use by is the label’s expiry date. Choose unspecified when the label does not say."
+                  help="Choose what the label says: Best before describes quality; Use by marks the stated expiry date. Choose Unspecified if it does not say."
                   label="Date type"
                   value={group.dateKind}
                   onChange={(v) => g({ dateKind: v as Item["dateKind"] })}
-                  options={["unspecified", "best before", "use by"]}
+                  options={[
+                    { value: "unspecified", label: "Unspecified" },
+                    { value: "best before", label: "Best before" },
+                    { value: "use by", label: "Use by" },
+                  ]}
                 />
               </div>
             </section>
@@ -644,60 +683,66 @@ export function Editor({
               defaultOpen={!!group.openedDate || !!group.rule}
             >
               <p className="muted">
-                Record the instructions on the package. Opening one unit from a
-                group can be done later.
+                The countdown uses the earlier of the printed date and the
+                deadline after opening.
               </p>
               <DateField
                 {...invalid("opened-date")}
                 label="Opened date"
                 value={group.openedDate}
                 onChange={(value) => g({ openedDate: value })}
-                help="The day you opened the item. Leave empty for unopened items."
+                help="Enter when this physical item was opened. Leave it empty while unopened."
                 error={fieldError("opened-date")}
               />
-              <div className="form-grid">
-                <label className="field">
-                  <span className="field-label">
-                    Use within after opening
-                    <Help
-                      label="Use within after opening"
-                      text="The label’s duration after opening. An opening date is needed to calculate its deadline. The earlier of this deadline and the printed date is tracked."
-                    />
-                  </span>
+              <div className="field duration-field">
+                <span className="field-label">
+                  Use within after opening
+                  <Help
+                    label="Use within after opening"
+                    text="Enter the duration stated on the label, such as 7 days or 6 months. You can record it before opening the item."
+                  />
+                </span>
+                <div className="duration-controls">
                   <input
                     type="number"
                     min={1}
                     max={3650}
                     {...invalid("opening-duration")}
                     inputMode="numeric"
-                    placeholder="No rule"
+                    placeholder="Optional"
                     value={group.rule?.amount || ""}
-                    onChange={(e) =>
+                    onChange={(event) =>
                       g({
-                        rule: e.target.value
+                        rule: event.target.value
                           ? {
-                              amount: e.target.valueAsNumber,
-                              unit: group.rule?.unit || "days",
+                              amount: event.target.valueAsNumber,
+                              unit: group.rule?.unit || durationUnit,
                             }
                           : undefined,
                       })
                     }
                   />
-                  {fieldError("opening-duration")}
-                </label>
-                <Choice
-                  label="Duration unit"
-                  value={group.rule?.unit || "days"}
-                  options={["days", "weeks", "months"]}
-                  onChange={(v) =>
-                    g({
-                      rule: {
-                        amount: group.rule?.amount || 1,
-                        unit: v as Duration["unit"],
-                      },
-                    })
-                  }
-                />
+                  <Choice
+                    label="Duration unit"
+                    value={group.rule?.unit || durationUnit}
+                    options={[
+                      { value: "days", label: "Days" },
+                      { value: "weeks", label: "Weeks" },
+                      { value: "months", label: "Months" },
+                    ]}
+                    onChange={(value) => {
+                      setDurationUnit(value as Duration["unit"]);
+                      if (group.rule)
+                        g({
+                          rule: {
+                            ...group.rule,
+                            unit: value as Duration["unit"],
+                          },
+                        });
+                    }}
+                  />
+                </div>
+                {fieldError("opening-duration")}
               </div>
               {group.quantity > 1 && group.openedDate && (
                 <p className="notice">
@@ -709,12 +754,12 @@ export function Editor({
             </Disclosure>
             <Disclosure title="More details" defaultOpen={!!item}>
               <div className="form-grid">
-                <label className="field">
+                <div className="field">
                   <span className="field-label">
-                    Quantity
+                    <label htmlFor="item-quantity">Quantity</label>
                     <Help
                       label="Quantity"
-                      text="Number of separate units with these same dates and location. Use Package size for grams, millilitres or tablets per package."
+                      text="Count the physical items sharing these details. Enter items, not grams or millilitres."
                     />
                   </span>
                   <input
@@ -728,7 +773,7 @@ export function Editor({
                     onChange={(e) => g({ quantity: e.target.valueAsNumber })}
                   />
                   {fieldError("item-quantity")}
-                </label>
+                </div>
                 <EditableChoice
                   label="Location"
                   value={group.location}
@@ -746,18 +791,19 @@ export function Editor({
                   customValues={records.products.map((p) => p.category)}
                 />
 
-                <label className="field">
-                  <span>Brand</span>
+                <div className="field">
+                  <label htmlFor="product-brand">Brand</label>
                   <input
                     maxLength={200}
                     placeholder="e.g. Haruharu wonder"
+                    id="product-brand"
                     name="until-product-brand"
                     autoComplete="off"
                     autoCorrect="off"
                     value={product.brand}
                     onChange={(e) => p({ brand: e.target.value })}
                   />
-                </label>
+                </div>
               </div>
 
               <div className="form-grid">
@@ -768,32 +814,39 @@ export function Editor({
                   onChange={(value) => g({ purchaseDate: value })}
                   error={fieldError("purchase-date")}
                 />
-                <label className="field">
+                <div className="field">
                   <span className="field-label">
-                    Package size
+                    <label htmlFor="product-size">Package size</label>
                     <Help
                       label="Package size"
-                      text="Amount in one package, for example 20 ml or 30 tablets. This does not change the number of units."
+                      text="Describe one package, for example 20 ml or 30 tablets. This optional text does not change Quantity."
                     />
                   </span>
                   <input
                     maxLength={100}
+                    id="product-size"
+                    name="until-package-size"
+                    autoComplete="off"
+                    autoCorrect="off"
                     aria-label="Package size"
                     placeholder="20 ml, 2 × 100 g, 30 tablets"
                     value={product.size}
                     onChange={(e) => p({ size: e.target.value })}
                   />
-                </label>
+                </div>
               </div>
-              <label className="field">
-                <span>Notes</span>
+              <div className="field">
+                <label htmlFor="item-notes">Notes</label>
                 <textarea
                   maxLength={5000}
+                  id="item-notes"
+                  name="until-item-notes"
+                  autoComplete="off"
                   placeholder="Storage instructions or anything to remember"
                   value={group.notes}
                   onChange={(e) => g({ notes: e.target.value })}
                 />
-              </label>
+              </div>
             </Disclosure>
             {warning && (
               <div className="notice">

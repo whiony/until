@@ -26,7 +26,10 @@ async function all(page: Page) {
 async function add(page: Page, name: string) {
   const mobile = page.viewportSize()!.width < 760;
   await page
-    .getByRole("button", { name: mobile ? "Add item" : "Add item", exact: true })
+    .getByRole("button", {
+      name: mobile ? "Add item" : "Add item",
+      exact: true,
+    })
     .click();
   await page.getByLabel("Product name *").fill(name);
   await setDate(page, "Printed date", "2029-04-15");
@@ -351,8 +354,8 @@ test("mobile editor, keyboard-size viewport, crop and replacement survive reload
   expect(editorBox!.width).toBe(390);
   expect(editorBox!.height).toBe(440);
   const save = page.getByRole("button", { name: "Add item", exact: true });
-  await expect(save).toBeVisible();
-  await expect(save).toBeInViewport();
+  await expect(page.locator("html")).toHaveClass(/keyboard-open/);
+  await expect(page.locator(".editor .form-footer")).toBeHidden();
   await expect(page.getByRole("button", { name: "Done typing" })).toHaveCount(
     0,
   );
@@ -365,7 +368,13 @@ test("mobile editor, keyboard-size viewport, crop and replacement survive reload
     ),
   ).toBe(true);
   await page.screenshot({ path: "test-results/mobile-keyboard-height.png" });
+  await page.getByLabel("Package size", { exact: true }).blur();
   await page.setViewportSize({ width: 390, height: 844 });
+  await expect(save).toBeVisible();
+  await expect(save).toBeInViewport();
+  await expect(page.getByLabel("Package size", { exact: true })).toHaveValue(
+    "2 × 100 g",
+  );
   await page.screenshot({ path: "test-results/mobile-editor.png" });
   await save.click();
   await all(page);

@@ -6,7 +6,7 @@ test.beforeEach(async ({ context }) =>
     "oai-authenticated-user-email": "creation@example.test",
   }),
 );
-test("optional dates commit only on Apply, clear explicitly, and name-only remains unclassified", async ({
+test("optional dates commit only on day selection, clear explicitly, and name-only remains unclassified", async ({
   page,
 }) => {
   await page.goto("/");
@@ -15,40 +15,31 @@ test("optional dates commit only on Apply, clear explicitly, and name-only remai
     date = page.getByLabel("Printed date", { exact: true });
   await name.fill("Unclassified name only");
   await expect(name).toHaveAttribute("type", "text");
-  await expect(date).toHaveValue("");
-  await expect(date).toHaveAttribute("placeholder", "Add a date");
+  await expect(date).toHaveText("Add a date");
+  await expect(date).toHaveAccessibleName("Printed date");
   await date.click();
-  await expect(
-    page.getByLabel("Choose printed date", { exact: true }),
-  ).toHaveValue("");
-  // Simulate a native picker changing its draft merely on dismissal.
-  await page
-    .getByLabel("Choose printed date", { exact: true })
-    .fill("2026-09-26");
-  await page.getByRole("button", { name: "Cancel date", exact: true }).click();
-  await expect(date).toHaveValue("");
+  await page.getByLabel("Year", { exact: true }).selectOption("2030");
+  await page.keyboard.press("Escape");
+  await expect(date).toHaveText("Add a date");
   await date.click();
   await page.keyboard.press("Escape");
-  await expect(date).toHaveValue("");
+  await expect(date).toHaveText("Add a date");
   await setDate(page, "Printed date", "2029-04-15");
-  await expect(date).toHaveValue("2029-04-15");
+  await expect(date).toHaveText("15 Apr 2029");
   await date.click();
   await page.getByRole("button", { name: "Clear date", exact: true }).click();
-  await expect(date).toHaveValue("");
+  await expect(date).toHaveText("Add a date");
   await page.getByLabel("Date type", { exact: true }).click();
-  await page.getByRole("option", { name: "best before", exact: true }).click();
+  await page.getByRole("option", { name: "Best before", exact: true }).click();
   await expandSection(page, "More details");
   for (const label of ["Location", "Category"])
     await expect(page.getByLabel(label, { exact: true })).toContainText(
       `No ${label.toLowerCase()} selected`,
     );
   await page.getByLabel("Purchase date", { exact: true }).click();
-  await page
-    .getByLabel("Choose purchase date", { exact: true })
-    .fill("2026-09-01");
-  await page.getByRole("button", { name: "Cancel date", exact: true }).click();
-  await expect(page.getByLabel("Purchase date", { exact: true })).toHaveValue(
-    "",
+  await page.keyboard.press("Escape");
+  await expect(page.getByLabel("Purchase date", { exact: true })).toHaveText(
+    "Add a date",
   );
   await setDate(page, "Purchase date", "2026-09-01");
   await page.getByLabel("Purchase date", { exact: true }).click();
@@ -73,7 +64,7 @@ test("optional dates commit only on Apply, clear explicitly, and name-only remai
     .getByRole("button", { name: "View Unclassified name only" })
     .click();
   await page.getByRole("button", { name: "Edit details" }).click();
-  await expect(date).toHaveValue("");
+  await expect(date).toHaveText("Add a date");
 });
 test("compact creation preserves values across help, disclosure, photos, keyboard-sized viewport and close warning", async ({
   page,
@@ -117,7 +108,9 @@ test("compact creation preserves values across help, disclosure, photos, keyboar
     await page
       .getByRole("button", { name: "Help: Printed date", exact: true })
       .click();
-    await expect(page.getByRole("note")).toContainText("Optional");
+    await expect(page.getByRole("note")).toContainText(
+      "printed on the packaging",
+    );
     await page.keyboard.press("Escape");
     await expandSection(page, "Photos & label recognition");
     await page
