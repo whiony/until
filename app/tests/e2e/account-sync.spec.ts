@@ -134,6 +134,8 @@ test("account APIs enforce isolation, compare-and-swap, origins and upload type"
     products: [],
     items: [],
     settings: {
+      theme: "lavender",
+      categoryRules: [{ name: "Beauty", hidden: true }],
       soonDays: 7,
       notifications: {
         requested: false,

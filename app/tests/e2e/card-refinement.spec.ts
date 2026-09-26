@@ -30,7 +30,7 @@ async function seedShelf(page: Page) {
     openedDate: "",
     purchaseDate: "",
     location: "Pantry",
-    notes: "",
+    notes: n === 0 ? "  \n  " : "",
     status: n < 2 ? (n === 0 ? "used" : "discarded") : "active",
     createdAt: stamp,
     updatedAt: stamp,
@@ -121,6 +121,7 @@ test("filtered record counts, physical-unit totals, compact history and equal de
     .click();
   const detail = page.locator(".detail");
   await expect(detail).not.toContainText("not recorded");
+  await expect(detail.locator(".detail-notes")).toHaveCount(0);
   await expect(detail.locator("dt")).toHaveText(["Quantity"]);
   const again = detail.getByRole("button", { name: "Add again", exact: true });
   const edit = detail.getByRole("button", {
@@ -150,6 +151,15 @@ test("filtered record counts, physical-unit totals, compact history and equal de
   await page.getByRole("button", { name: "Close", exact: true }).click();
   await page.getByRole("button", { name: "Show list", exact: true }).click();
   await expect(multiple.locator(".list-quantity")).toHaveText("3 units");
+  for (const row of [single, multiple]) {
+    const content = await row.locator(".card-main").boundingBox();
+    const status = await row.locator(".card-status").boundingBox();
+    expect(
+      Math.abs(
+        status!.y + status!.height / 2 - content!.y - content!.height / 2,
+      ),
+    ).toBeLessThan(2);
+  }
   await page.screenshot({
     animations: "disabled",
     path: "test-results/refined-history-list.png",
@@ -288,6 +298,8 @@ test("portrait, landscape, cropped product photos compose with details and evide
     ).toBe(204);
     records.products[n].photoId = id;
   }
+  records.products[3].photoId = records.products[0].photoId;
+  records.products[4].photoId = records.products[1].photoId;
   records.items[0].packagingPhotoId = evidenceId;
   expect(
     (
@@ -299,6 +311,22 @@ test("portrait, landscape, cropped product photos compose with details and evide
   ).toBe(200);
   await page.reload();
   await page.getByRole("tab", { name: "History", exact: true }).click();
+  await expect(page.locator(".item-card .photo img")).toHaveCount(2);
+  for (const list of [false, true]) {
+    if (list) await page.getByRole("button", { name: "Show list" }).click();
+    for (const img of await page.locator(".item-card .photo img").all()) {
+      await expect(img).toHaveCSS("object-fit", "contain");
+      const frame = await img.locator("..").boundingBox();
+      const image = await img.boundingBox();
+      expect(image!.width).toBeLessThanOrEqual(frame!.width);
+      expect(image!.height).toBeLessThanOrEqual(frame!.height);
+    }
+    await page.screenshot({
+      animations: "disabled",
+      path: `test-results/full-card-images-${list ? "list" : "grid"}.png`,
+    });
+  }
+  await page.getByRole("button", { name: "Show grid" }).click();
   for (const name of [
     "Single historical item",
     "Multiple discarded packages",
@@ -320,6 +348,16 @@ test("portrait, landscape, cropped product photos compose with details and evide
     await page.getByRole("button", { name: "Close", exact: true }).click();
   }
   await page.getByRole("tab", { name: /All items/ }).click();
+  await expect(page.locator(".item-card .photo img")).toHaveCount(3);
+  for (const list of [false, true]) {
+    if (list) await page.getByRole("button", { name: "Show list" }).click();
+    for (const img of await page.locator(".item-card .photo img").all())
+      await expect(img).toHaveCSS("object-fit", "contain");
+    await page.screenshot({
+      animations: "disabled",
+      path: `test-results/active-full-images-${list ? "list" : "grid"}.png`,
+    });
+  }
   await page
     .getByRole("button", {
       name: "View Shelf 2 with a long product name",

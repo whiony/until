@@ -1,11 +1,23 @@
+import { normalizeCategories } from "./preferences";
 import { emptyRecords, type Records } from "./domain";
 export class SyncConflict extends Error {
   constructor(public fields: string[]) {
     super("Changes overlap on another device. Both copies are preserved.");
   }
 }
+const canonical = (value: unknown): unknown => {
+  if (Array.isArray(value)) return value.map(canonical);
+  if (value && typeof value === "object")
+    return Object.fromEntries(
+      Object.entries(value)
+        .filter(([, v]) => v !== undefined)
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([k, v]) => [k, canonical(v)]),
+    );
+  return value;
+};
 const equal = (a: unknown, b: unknown) =>
-  JSON.stringify(a) === JSON.stringify(b);
+  JSON.stringify(canonical(a)) === JSON.stringify(canonical(b));
 // Three-way merge, independent of device clocks. Related item fields are atomic:
 // silently combining a status/quantity split can manufacture or lose units.
 export function mergeRecords(
@@ -37,25 +49,75 @@ export function mergeRecords(
       r = new Map(remote[key].map((x) => [x.id, x]));
     return [...new Set([...b.keys(), ...l.keys(), ...r.keys()])]
       .map((id) => merge(b.get(id), l.get(id), r.get(id), `${key}:${id}`))
-      .filter(Boolean) as Records[K];
+      .filter(Boolean)
+      .map((entity) => structuredClone(entity)) as Records[K];
   }
   const result = {
     ...emptyRecords(),
     revision: local.revision,
     products: entities("products"),
     items: entities("items"),
-    settings: merge(
-      base.settings,
-      local.settings,
-      remote.settings,
-      "preferences",
-    ),
+    settings: {
+      soonDays: merge(
+        base.settings.soonDays,
+        local.settings.soonDays,
+        remote.settings.soonDays,
+        "preferences:soonDays",
+      ),
+      notifications: merge(
+        base.settings.notifications,
+        local.settings.notifications,
+        remote.settings.notifications,
+        "preferences:notifications",
+      ),
+      theme: merge(
+        base.settings.theme || "green",
+        local.settings.theme || base.settings.theme || "green",
+        remote.settings.theme || base.settings.theme || "green",
+        "preferences:theme",
+      ),
+      categoryRules: [
+        ...new Set(
+          [base, local, remote].flatMap((x) =>
+            (x.settings.categoryRules || []).map((c) =>
+              c.name.toLocaleLowerCase("en"),
+            ),
+          ),
+        ),
+      ].map((name) => {
+        const rule = (r: Records) =>
+          r.settings.categoryRules?.find(
+            (c) => c.name.toLocaleLowerCase("en") === name,
+          );
+        return merge(rule(base), rule(local), rule(remote), `category:${name}`);
+      }),
+    },
   };
   if (conflicts.length) throw new SyncConflict(conflicts);
+  normalizeCategories(result);
   return result;
 }
 export const recordsEqual = (a: Records, b: Records) =>
-  equal({ ...a, revision: 0 }, { ...b, revision: 0 });
+  equal(
+    {
+      ...a,
+      revision: 0,
+      settings: {
+        ...a.settings,
+        theme: a.settings.theme || "green",
+        categoryRules: a.settings.categoryRules || [],
+      },
+    },
+    {
+      ...b,
+      revision: 0,
+      settings: {
+        ...b.settings,
+        theme: b.settings.theme || "green",
+        categoryRules: b.settings.categoryRules || [],
+      },
+    },
+  );
 export const photoIds = (r: Records) =>
   [
     ...new Set(

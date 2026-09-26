@@ -40,6 +40,8 @@ export type Item = {
   schemaVersion: 1;
 };
 export type Settings = {
+  theme?: import("./preferences").Theme;
+  categoryRules?: import("./preferences").CategoryRule[];
   soonDays: number;
   notifications: {
     requested: boolean;

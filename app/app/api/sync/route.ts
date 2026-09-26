@@ -1,3 +1,4 @@
+import { normalizeCategories, resolvedCategory } from "@/lib/until/preferences";
 import {
   database,
   owner,
@@ -61,6 +62,22 @@ const schema = z.object({
   products: z.array(product).max(10000),
   items: z.array(item).max(30000),
   settings: z.object({
+    theme: z.enum(["green", "peach", "lavender", "blue"]).optional(),
+    categoryRules: z
+      .array(
+        z.object({
+          name: z
+            .string()
+            .trim()
+            .min(1)
+            .max(100)
+            .refine((v) => !v.startsWith("__")),
+          hidden: z.boolean().optional(),
+          replacement: z.string().trim().max(100).optional(),
+        }),
+      )
+      .max(200)
+      .optional(),
     soonDays: z.number().int().min(1).max(90),
     notifications: z.object({
       requested: z.boolean(),
@@ -97,6 +114,34 @@ export async function PUT(req: Request) {
     if (!parsed.success)
       return new Response("Invalid records", { status: 400 });
     const r = parsed.data;
+    try {
+      const names =
+        r.settings.categoryRules?.map((c) => c.name.toLocaleLowerCase("en")) ||
+        [];
+      if (new Set(names).size !== names.length)
+        throw Error("Duplicate categories");
+      const builtins = [
+        "Food",
+        "Beauty",
+        "Medicine",
+        "Supplements",
+        "Household",
+        "Pet",
+      ];
+      for (const rule of r.settings.categoryRules || []) {
+        if (
+          builtins.some((c) => c.toLowerCase() === rule.name.toLowerCase()) &&
+          rule.replacement !== undefined
+        )
+          throw Error("Invalid built-in category");
+        // Resolve unused rules too, so cyclic redirects can never enter storage.
+        resolvedCategory(r, rule.name);
+      }
+      normalizeCategories(r);
+    } catch {
+      return new Response("Invalid categories", { status: 400 });
+    }
+
     if (
       new Set(r.products.map((p) => p.id)).size !== r.products.length ||
       new Set(r.items.map((i) => i.id)).size !== r.items.length

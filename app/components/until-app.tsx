@@ -1,4 +1,7 @@
 "use client";
+import { categoryNames } from "@/lib/until/preferences";
+import { AppearanceCategories } from "./until-preferences";
+import { InlineDate } from "./until-inline-date";
 import { demoRecords, itemCount, units } from "@/lib/until/demo";
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
@@ -35,7 +38,6 @@ import { Photo } from "./until-photo";
 import { Editor, type EditorValue } from "./until-editor";
 import {
   emptyRecords,
-  categories,
   locations,
   today,
   deadline,
@@ -64,6 +66,10 @@ type View = "soon" | "all" | "history" | "settings";
 export default function UntilApp() {
   useVisualViewport();
   const [realRecords, setRecords] = useState<Records>(emptyRecords);
+  useEffect(() => {
+    document.documentElement.dataset.theme =
+      realRecords.settings.theme || "green";
+  }, [realRecords.settings.theme]);
   const [ready, setReady] = useState(false);
   const [loadError, setLoadError] = useState("");
   const [view, setView] = useState<View>("soon");
@@ -281,31 +287,34 @@ export default function UntilApp() {
                     </p>
                   )}
                 </div>
-                <div className="countdown">
-                  {i.status === "active" ? (
-                    <Clock3 size={17} />
-                  ) : i.status === "used" ? (
-                    <Check size={17} />
-                  ) : (
-                    <Trash2 size={17} />
+                <div className="card-status">
+                  <div className="countdown">
+                    {i.status === "active" ? (
+                      <Clock3 size={17} />
+                    ) : i.status === "used" ? (
+                      <Check size={17} />
+                    ) : (
+                      <Trash2 size={17} />
+                    )}
+                    <span>
+                      {i.status === "active"
+                        ? countdown(i, now)
+                        : i.status === "used"
+                          ? "Used"
+                          : "Discarded"}
+                    </span>
+                  </div>
+                  {((i.status === "active" && (!list || deadline(i).date)) ||
+                    i.completedAt) && (
+                    <p className="date-caption">
+                      {i.status === "active"
+                        ? displayDate(deadline(i).date) ||
+                          "Add a date when you have it"
+                        : historyDate(i)}
+                      {i.status === "active" && i.openedDate ? " · opened" : ""}
+                    </p>
                   )}
-                  <span>
-                    {i.status === "active"
-                      ? countdown(i, now)
-                      : i.status === "used"
-                        ? "Used"
-                        : "Discarded"}
-                  </span>
                 </div>
-                {(i.status === "active" || i.completedAt) && (
-                  <p className="date-caption">
-                    {i.status === "active"
-                      ? displayDate(deadline(i).date) ||
-                        "Add a date when you have it"
-                      : historyDate(i)}
-                    {i.status === "active" && i.openedDate ? " · opened" : ""}
-                  </p>
-                )}
                 <ArrowUpRight className="card-arrow" size={19} />
               </button>
               <div className="card-bottom">
@@ -528,12 +537,9 @@ export default function UntilApp() {
                       onChange={setCategory}
                       options={[
                         { value: "any", label: "All Categories" },
-                        ...[
-                          ...new Set([
-                            ...categories,
-                            ...records.products.map((p) => p.category),
-                          ]),
-                        ].filter(Boolean),
+                        ...[...new Set([...categoryNames(records)])].filter(
+                          Boolean,
+                        ),
                       ]}
                     />
                     {view === "all" && (
@@ -911,13 +917,21 @@ export default function UntilApp() {
                 </div>
               )}
             </dl>
-            {selected.status === "active" && (
-              <p className="notice">
-                {deadline(selected).date
-                  ? `The ${deadline(selected).controls} controls this countdown because it is the earliest applicable date.`
-                  : "Add a date to see a countdown."}
-              </p>
-            )}
+            {selected.status === "active" &&
+              (deadline(selected).date ? (
+                <p className="notice">
+                  {deadline(selected).date
+                    ? `The ${deadline(selected).controls} controls this countdown because it is the earliest applicable date.`
+                    : "Add a date to see a countdown."}
+                </p>
+              ) : (
+                <InlineDate
+                  key={selected.id}
+                  item={selected}
+                  disabled={demo}
+                  onChange={change}
+                />
+              ))}
             {selected.printedDate && selected.dateKind === "best before" && (
               <p className="muted">
                 Best before is a quality date, not an automatic safety cutoff.
@@ -928,7 +942,12 @@ export default function UntilApp() {
                 This is a reminder of your recorded date, not medical advice.
               </p>
             )}
-            {selected.notes && <p>{selected.notes}</p>}
+            {selected.notes.trim() && (
+              <section className="detail-notes" aria-label="Notes">
+                <h3>Notes</h3>
+                <p>{selected.notes}</p>
+              </section>
+            )}
             {selected.packagingPhotoId && (
               <>
                 <h3>Original packaging photo</h3>
@@ -1043,6 +1062,7 @@ function Settings({
           <p>Manage reminders and account storage.</p>
         </div>
       </div>
+      <AppearanceCategories records={records} onChange={onChange} />
       <form
         className="settings"
         onSubmit={async (e) => {
@@ -1050,7 +1070,8 @@ function Settings({
           setSaving(true);
           try {
             await onChange((r) => {
-              r.settings = settings;
+              r.settings.soonDays = settings.soonDays;
+              r.settings.notifications = settings.notifications;
             });
             setMessage("Preferences saved. Notifications are not active.");
           } catch {

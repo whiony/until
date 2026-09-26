@@ -1,4 +1,5 @@
 "use client";
+import { categoryNames } from "@/lib/until/preferences";
 import { useState, useCallback, useRef } from "react";
 import { DateField } from "./until-date-field";
 import { Disclosure } from "./until-disclosure";
@@ -26,7 +27,6 @@ import { Choice, Check, EditableChoice } from "./until-controls";
 import { Photo } from "./until-photo";
 import { Scanner } from "./until-scanner";
 import {
-  categories,
   displayDate,
   locations,
   newId,
@@ -827,8 +827,8 @@ export function Editor({
                   name="until-product-category"
                   value={product.category}
                   onChange={(value) => p({ category: value })}
-                  defaults={categories}
-                  customValues={records.products.map((p) => p.category)}
+                  defaults={categoryNames(records, true)}
+                  customValues={[]}
                 />
 
                 <div className="field">
