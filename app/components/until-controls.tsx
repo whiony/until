@@ -24,8 +24,10 @@ export function Choice({
 }) {
   return (
     <label className="field">
-      <span>{label}</span>
-      {help && <Help label={label} text={help} />}
+      <span className="field-label">
+        {label}
+        {help && <Help label={label} text={help} />}
+      </span>
       <Select value={value} onValueChange={onChange}>
         <SelectTrigger aria-label={label}>
           <SelectValue />
@@ -85,8 +87,9 @@ export function EditableChoice({
     <div>
       <Choice
         label={label}
-        value={custom ? "__custom" : value || defaults[0]}
+        value={custom ? "__custom" : value || "__unset"}
         options={[
+          { value: "__unset", label: `No ${label.toLowerCase()} selected` },
           ...values,
           { value: "__custom", label: `Add custom ${label.toLowerCase()}…` },
         ]}
@@ -95,7 +98,7 @@ export function EditableChoice({
             setCustom(true);
           } else {
             setCustom(false);
-            onChange(v);
+            onChange(v === "__unset" ? "" : v);
           }
         }}
       />

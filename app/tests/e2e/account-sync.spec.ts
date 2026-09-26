@@ -1,3 +1,4 @@
+import { expandSection, setDate } from "./editor-helpers";
 import { test, expect, type Page, type Browser } from "@playwright/test";
 const auth = (id: string) => ({
   "oai-authenticated-user-id": id,
@@ -28,7 +29,7 @@ async function add(page: Page, name: string) {
     .getByRole("button", { name: mobile ? "Add" : "Add item", exact: true })
     .click();
   await page.getByLabel("Product name *").fill(name);
-  await page.getByLabel("Printed date", { exact: true }).fill("2029-04-15");
+  await setDate(page, "Printed date", "2029-04-15");
   await page
     .getByRole("button", { name: "Add item", exact: true })
     .last()
@@ -67,11 +68,13 @@ test("two independent account sessions sync creates, edits, status, offline chan
   await b.getByRole("button", { name: "View Phone cream" }).click();
   await b.getByRole("button", { name: "Edit details", exact: true }).click();
   await b.getByLabel("Product name *").fill("Desktop cream");
+  await expandSection(b, "More details");
   await b.getByLabel("Category", { exact: true }).click();
   await b.getByRole("option", { name: "Beauty", exact: true }).click();
+  await expandSection(b, "More details");
   await b.getByLabel("Location", { exact: true }).click();
   await b.getByRole("option", { name: "Bathroom", exact: true }).click();
-  await b.getByText("Photos & label recognition", { exact: true }).click();
+  await expandSection(b, "Photos & label recognition");
   await b
     .getByLabel("Product photo", { exact: true })
     .setInputFiles("tests/fixtures/label.png");
@@ -205,12 +208,20 @@ test("existing IndexedDB records migrate once, defaults remain selectable and no
   const context = await session(browser, crypto.randomUUID());
   const page = await context.newPage();
   // Seed the legacy database before app code can create an account namespace.
-  await page.route("**/__legacy-fixture", route => route.fulfill({contentType:"text/html",body:"<!doctype html><title>Legacy fixture</title>"}));
+  await page.route("**/__legacy-fixture", (route) =>
+    route.fulfill({
+      contentType: "text/html",
+      body: "<!doctype html><title>Legacy fixture</title>",
+    }),
+  );
   await page.goto("/__legacy-fixture");
   await page.evaluate(async () => {
     const db = await new Promise<IDBDatabase>((resolve, reject) => {
       const request = indexedDB.open("until", 1);
-      request.onupgradeneeded = () => {request.result.createObjectStore("state");request.result.createObjectStore("photos");};
+      request.onupgradeneeded = () => {
+        request.result.createObjectStore("state");
+        request.result.createObjectStore("photos");
+      };
       request.onsuccess = () => resolve(request.result);
       request.onerror = () => reject(request.error);
     });
@@ -283,6 +294,7 @@ test("existing IndexedDB records migrate once, defaults remain selectable and no
   await all(page);
   await page.getByRole("button", { name: "View Existing custom item" }).click();
   await page.getByRole("button", { name: "Edit details" }).click();
+  await expandSection(page, "More details");
   await page.getByLabel("Category", { exact: true }).click();
   for (const name of [
     "Food",
@@ -314,25 +326,33 @@ test("mobile editor, keyboard-size viewport, crop and replacement survive reload
   await page
     .getByLabel("Product name *")
     .fill("Haruharu wonder Black Rice Bakuchiol Eye Cream 20ml");
-  await page.getByLabel("Printed date", { exact: true }).fill("2029-04-15");
+  await setDate(page, "Printed date", "2029-04-15");
+  await expandSection(page, "More details");
   await page.getByLabel("Category", { exact: true }).click();
   await page.getByRole("option", { name: "Beauty", exact: true }).click();
-  await page.getByText("Photos & label recognition", { exact: true }).click();
+  await expandSection(page, "Photos & label recognition");
   await page
     .getByLabel("Product photo", { exact: true })
     .setInputFiles("tests/fixtures/label.png");
   await page.getByRole("button", { name: "Use crop" }).click();
-  await page.getByText("More details", { exact: true }).click();
+  await expect(page.locator(".crop-dialog")).toHaveCount(0);
+  await expandSection(page, "More details");
   await page.getByLabel("Package size", { exact: true }).fill("2 × 100 g");
   await page.setViewportSize({ width: 390, height: 440 });
   await page.getByLabel("Package size", { exact: true }).focus();
+  await expect
+    .poll(
+      async () => (await page.locator(".editor.modal").boundingBox())?.height,
+    )
+    .toBe(440);
   const editorBox = await page.locator(".editor.modal").boundingBox();
   expect(editorBox!.x).toBe(0);
   expect(editorBox!.y).toBe(0);
   expect(editorBox!.width).toBe(390);
   expect(editorBox!.height).toBe(440);
   const save = page.getByRole("button", { name: "Add item", exact: true });
-  await expect(save).not.toBeVisible();
+  await expect(save).toBeVisible();
+  await expect(save).toBeInViewport();
   await expect(page.getByRole("button", { name: "Done typing" })).toHaveCount(
     0,
   );
@@ -371,7 +391,7 @@ test("mobile editor, keyboard-size viewport, crop and replacement survive reload
   await expect(page.locator(".detail.modal")).toHaveCSS("opacity", "1");
   await page.screenshot({ path: "test-results/mobile-detail.png" });
   await page.getByRole("button", { name: "Edit details" }).click();
-  await page.getByText("Photos & label recognition", { exact: true }).click();
+  await expandSection(page, "Photos & label recognition");
   await page.getByRole("button", { name: "Crop photo", exact: true }).click();
   await page.getByRole("button", { name: "Cancel crop" }).click();
   await expect(page.getByLabel("Product name *")).toHaveValue(
@@ -379,14 +399,17 @@ test("mobile editor, keyboard-size viewport, crop and replacement survive reload
   );
   await page.getByRole("button", { name: "Crop photo", exact: true }).click();
   await page.getByRole("button", { name: "Use crop" }).click();
+  await expect(page.locator(".crop-dialog")).toHaveCount(0);
   await page.getByRole("button", { name: "Save changes" }).click();
   await page.getByRole("button", { name: "Edit details" }).click();
-  await page.getByText("Photos & label recognition", { exact: true }).click();
+  await expandSection(page, "Photos & label recognition");
   await page
     .getByLabel("Product photo", { exact: true })
     .setInputFiles("public/icons/icon-192.png");
   await page.getByRole("button", { name: "Use crop" }).click();
+  await expect(page.locator(".crop-dialog")).toHaveCount(0);
   await page.getByRole("button", { name: "Save changes" }).click();
+  await expect(page.locator(".editor.modal")).toHaveCount(0);
   await page.reload();
   await all(page);
   const image = page.getByRole("img", {
@@ -394,8 +417,8 @@ test("mobile editor, keyboard-size viewport, crop and replacement survive reload
     exact: true,
   });
   await expect(image).toBeVisible();
-  expect(await image.evaluate((e: HTMLImageElement) => e.naturalWidth)).toBe(
-    192,
-  );
+  await expect
+    .poll(() => image.evaluate((e: HTMLImageElement) => e.naturalWidth))
+    .toBe(192);
   await context.close();
 });

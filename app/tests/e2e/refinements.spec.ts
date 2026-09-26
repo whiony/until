@@ -1,3 +1,4 @@
+import {expandSection,setDate} from "./editor-helpers";
 import { test, expect, type Page } from "@playwright/test";
 import fs from "node:fs/promises";
 import sharp from "sharp";
@@ -9,7 +10,7 @@ async function add(page: Page, name: string, photo = false) {
   await page.getByRole("button", { name: "Add item", exact: true }).click();
   await page.getByLabel("Product name *").fill(name);
   if (photo) {
-    await page.getByText("Photos & label recognition", { exact: true }).click();
+    await expandSection(page, "Photos & label recognition");
     await page
       .getByLabel("Product photo", { exact: true })
       .setInputFiles("public/demo/yogurt.png");
@@ -116,11 +117,12 @@ test("invalid submission focuses the relevant field and retains typed name and p
     page.getByText("Add a product name.", { exact: true }),
   ).toBeVisible();
   await page.getByLabel("Product name *").fill("Keep my photo");
-  await page.getByText("Photos & label recognition", { exact: true }).click();
+  await expandSection(page, "Photos & label recognition");
   await page
     .getByLabel("Product photo", { exact: true })
     .setInputFiles("public/demo/yogurt.png");
   await page.getByRole("button", { name: "Use crop" }).click();
+  await expandSection(page, "More details");
   await page.getByLabel("Quantity", { exact: true }).fill("0");
   await page
     .getByRole("button", { name: "Add item", exact: true })
@@ -135,9 +137,10 @@ test("invalid submission focuses the relevant field and retains typed name and p
   await expect(
     page.getByRole("img", { name: "Keep my photo", exact: true }),
   ).toBeVisible();
+  await expandSection(page, "More details");
   await page.getByLabel("Quantity", { exact: true }).fill("2");
-  await page.getByText("More details", { exact: true }).click();
-  await page.getByLabel("Purchase date", { exact: true }).fill("2199-01-01");
+  await expandSection(page, "More details");
+  await setDate(page, "Purchase date", "2199-01-01");
   await page
     .getByRole("button", { name: "Add item", exact: true })
     .last()
@@ -149,7 +152,7 @@ test("invalid submission focuses the relevant field and retains typed name and p
       { exact: true },
     ),
   ).toBeVisible();
-  await page.getByLabel("Purchase date", { exact: true }).fill("");
+  await setDate(page, "Purchase date", "");
   await page
     .getByRole("button", { name: "Add item", exact: true })
     .last()
@@ -166,7 +169,7 @@ test("real product OCR suggests text only after explicit action and confirmation
   await page.goto("/");
   await page.getByRole("button", { name: "Add item", exact: true }).click();
   await page.getByLabel("Product name *").fill("My original name");
-  await page.getByText("Photos & label recognition", { exact: true }).click();
+  await expandSection(page, "Photos & label recognition");
   await page
     .getByLabel("Product photo", { exact: true })
     .setInputFiles("public/demo/yogurt.png");
@@ -202,7 +205,7 @@ test("unavailable product OCR keeps manual entry and the photo", async ({
   await page.goto("/");
   await page.getByRole("button", { name: "Add item", exact: true }).click();
   await page.getByLabel("Product name *").fill("Manual label");
-  await page.getByText("Photos & label recognition", { exact: true }).click();
+  await expandSection(page, "Photos & label recognition");
   await page
     .getByLabel("Product photo", { exact: true })
     .setInputFiles("public/demo/yogurt.png");

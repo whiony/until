@@ -2095,3 +2095,54 @@ h1 {
   .as-list .countdown { grid-column: 2; grid-row: 2; margin-top: 8px; }
   .as-list .date-caption { grid-column: 2; grid-row: 3; }
 }
+/* Quick creation: one scroll region, compact labels and optional secondary fields. */
+.editor.modal { width: min(720px, calc(100vw - 40px)) !important; max-width: 720px !important; height: min(820px, calc(var(--visible-height,100dvh) - 40px)); gap: 0; padding: 20px 24px 0 !important; }
+.editor.modal [data-slot="dialog-title"] { font-size: 24px !important; margin: 0 0 16px; padding: 0 48px 0 0; }
+.editor-fields { padding-top: 0; scroll-padding: 16px; }
+.editor .editor-fields [data-slot="dialog-description"] { margin: 0 0 18px; font-size: 14px; line-height: 1.5; }
+.editor .field { gap: 6px; margin: 10px 0; }
+.editor .field > span:first-child, .editor .field:has(.field-help) > span:first-child { min-height: 24px; margin-bottom: 0; padding-right: 0; }
+.editor .field-label { display: flex !important; align-items: center; justify-content: flex-start; gap: 6px; line-height: 1.4; }
+.editor .field-help { position: static; flex: 0 0 24px; width: 24px; min-height: 24px; height: 24px; font-size: 12px; }
+.editor .field input:not(.file-input), .editor .field [data-slot="select-trigger"] { min-height: 46px; height: 46px; }
+.editor .scan-compact { margin: 2px 0 14px; gap: 8px; }
+.editor .scan-compact .inline { gap: 8px; }
+.editor .scan-compact button:not(.field-help) { min-height: 38px; padding: 8px 12px; font-size: 14px; }
+.editor .scan-compact svg { width: 18px; height: 18px; }
+.editor details.editor-section { margin: 16px 0 0; padding: 12px 0 0; border-top: 1px solid var(--border); }
+.editor details.editor-section summary { min-height: 36px; padding: 0; font-size: 16px; line-height: 1.4; gap: 8px; }
+.editor details.editor-section summary svg { width: 18px; height: 18px; transition: transform .15s; flex-shrink: 0; }
+.editor details.editor-section[open] > summary svg { transform: rotate(180deg); }
+.editor .section-content { padding: 4px 0 0; }
+.editor .photo-section .form-grid { gap: 16px; }
+.editor .photo-upload { min-height: 46px; padding: 10px; font-size: 14px; white-space: normal; text-align: center; }
+.editor .photo-purpose { display: block; margin: 0; font-size: 12px; color: var(--muted-foreground); line-height: 1.4; }
+.editor .date-section { margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--border); }
+.editor .date-section h2 { font-size: 16px; line-height: 1.4; margin: 0 0 2px; }
+.editor .date-section h2 span { margin-left: 6px; font-size: 12px; font-weight: 400; color: var(--muted-foreground); }
+.editor .form-footer { justify-content: flex-end; gap: 10px; padding: 12px 24px; }
+.date-trigger { position: relative; }
+.date-trigger input { cursor: pointer; width: 100%; padding-right: 38px !important; }
+.date-trigger svg { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); pointer-events: none; }
+.date-picker { background: var(--card); color: var(--foreground); width: min(340px, calc(100vw - 24px)); padding: 16px; border-radius: 14px; }
+.date-picker .field { margin: 0 0 12px; }
+.date-picker input { width: 100%; min-height: 46px; font-size: 16px; border: 1px solid var(--border); border-radius: 10px; padding: 10px; background: var(--card); }
+.date-picker-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.date-picker-actions button { min-height: 40px; font-size: 13px; padding: 8px 10px; }
+.discard-dialog { background: var(--card); color: var(--foreground); border-radius: 18px; }
+@media (max-width:760px) {
+ .editor.modal, .keyboard-open .editor.modal { width: 100% !important; max-width: none !important; padding: calc(10px + var(--safe-top)) 16px 0 !important; }
+ .editor.modal [data-slot="dialog-title"], .keyboard-open .editor [data-slot="dialog-title"] { font-size: 20px !important; margin-bottom: 12px; min-height: 32px; line-height: 32px; }
+ .editor.modal [data-slot="dialog-close"], .keyboard-open .editor [data-slot="dialog-close"] { top: calc(4px + var(--safe-top)); right: 10px; }
+ .editor-fields { margin: 0 -16px; padding: 0 16px 16px; }
+ .editor .editor-fields [data-slot="dialog-description"], .keyboard-open .editor .editor-fields [data-slot="dialog-description"] { display: block; margin: 0 0 14px; font-size: 13px; }
+ .editor .form-grid { grid-template-columns: 1fr; }
+ .editor .photo-section .form-grid { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 10px; }
+ .editor .photo-section .field-label { font-size: 13px; align-items: flex-start; }
+ .editor .photo-section .photo { width: 100%; max-width: 180px; height: auto; aspect-ratio: 1; }
+ .editor .photo-upload { font-size: 13px; }
+ .editor .form-footer, .keyboard-open .editor .form-footer { display: flex; margin: 0 -16px; padding: 8px 16px calc(8px + env(safe-area-inset-bottom)); }
+ .editor .form-footer > button:first-child { display: none; }
+ .editor .form-footer button { min-height: 44px; height: 44px; }
+}
+@media (max-width:359px) { .editor .photo-section .form-grid { grid-template-columns: 1fr; gap: 4px; } }

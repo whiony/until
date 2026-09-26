@@ -1,7 +1,18 @@
 "use client";
 import { useState, useCallback, useRef } from "react";
+import { DateField } from "./until-date-field";
+import { Disclosure } from "./until-disclosure";
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogCancel,
+  AlertDialogAction,
+  AlertDialogFooter,
+} from "./ui/alert-dialog";
 import { Help } from "./until-help";
-import { ScanBarcode, Camera, Plus, ChevronDown } from "lucide-react";
+import { ScanBarcode, Camera } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -20,7 +31,6 @@ import {
   newId,
   stamp,
   validateItem,
-  today,
   type Item,
   type Product,
   type Records,
@@ -58,7 +68,7 @@ export function Editor({
           id: newId(),
           name: "",
           brand: "",
-          category: "Food",
+          category: "",
           barcode: "",
           size: "",
           createdAt: now,
@@ -77,7 +87,7 @@ export function Editor({
           dateKind: "unspecified",
           purchaseDate: "",
           openedDate: "",
-          location: "Pantry",
+          location: "",
           notes: "",
           status: "active",
           createdAt: now,
@@ -85,6 +95,20 @@ export function Editor({
           schemaVersion: 1,
         },
   );
+  const initialValues = useRef(JSON.stringify({ product, group }));
+  const [confirmClose, setConfirmClose] = useState(false);
+  function requestClose() {
+    if (busy || ocrBusy || lookupBusy) return;
+    if (
+      JSON.stringify({ product, group }) !== initialValues.current ||
+      Object.keys(photos).length ||
+      cropSource
+    ) {
+      setConfirmClose(true);
+      return;
+    }
+    onClose();
+  }
   const [productVersion, setProductVersion] = useState(
     initialProduct?.updatedAt,
   );
@@ -161,13 +185,16 @@ export function Editor({
       setLookupBusy(false);
     }
   }
-  const scanned = useCallback((code: string) => {
-    setScan(false);
-    setProduct((v) => ({ ...v, barcode: code }));
-    setInfo(
-      "Barcode captured. Look up scanned barcode, or continue with your own details.",
-    );
-  }, []);
+  const scanned = useCallback(
+    (code: string) => {
+      setScan(false);
+      setProduct((v) => ({ ...v, barcode: code }));
+      setInfo(
+        "Barcode captured. Look up scanned barcode, or continue with your own details.",
+      );
+    },
+    [setScan, setProduct, setInfo],
+  );
   async function accept() {
     if (!suggestion) return;
     const saved = records.products.find(
@@ -291,20 +318,21 @@ export function Editor({
     <Dialog
       open
       onOpenChange={(v) => {
-        if (!v && !busy && !ocrBusy) onClose();
+        if (!v) requestClose();
       }}
     >
       <DialogContent className="editor modal">
         <DialogTitle>
           {item ? "Edit item" : initialProduct ? "Add another" : "Add item"}
         </DialogTitle>
-        <DialogDescription>
-          {item
-            ? "Update this item’s dates and details."
-            : "Start with a name. Add a date whenever you have it."}
-        </DialogDescription>
         <form ref={formRef} onSubmit={submit} noValidate autoComplete="off">
           <div className="editor-fields">
+            <DialogDescription>
+              {item
+                ? "Update this item’s dates and details."
+                : "Start with a name. Add a date whenever you have it."}
+            </DialogDescription>
+
             {error && (
               <p id="form-error" tabIndex={-1} className="error" role="alert">
                 {error}
@@ -312,9 +340,9 @@ export function Editor({
             )}
             <label className="field">
               <span>Product name *</span>
-              <textarea
+              <input
                 {...invalid("product-name")}
-                rows={2}
+                type="text"
                 required
                 maxLength={200}
                 value={product.name}
@@ -329,6 +357,10 @@ export function Editor({
                   <button type="button" onClick={() => setScan(true)}>
                     <ScanBarcode /> Scan barcode
                   </button>
+                  <Help
+                    label="Scan barcode"
+                    text="Identifies the product; you add this package’s date separately."
+                  />
                 </div>
                 {scan && (
                   <Scanner onCode={scanned} onClose={() => setScan(false)} />
@@ -361,172 +393,23 @@ export function Editor({
                     </button>
                   </div>
                 )}
-                <small>
-                  Barcodes identify products, never this package’s expiration
-                  date.
-                </small>
               </section>
             )}
-            <div className="form-grid">
-              <label className="field">
-                <span>Printed date</span>
-                <Help
-                  label="Printed date"
-                  text="Choose the date printed on this package using your device’s local date format. Leave it blank if unknown. The earlier applicable printed or after-opening date is tracked."
-                />
-                <input
-                  {...invalid("printed-date")}
-                  aria-label="Printed date"
-                  type="date"
-                  min="1900-01-01"
-                  max="2200-12-31"
-                  value={group.printedDate}
-                  onChange={(e) => g({ printedDate: e.target.value })}
-                />
-                {fieldError("printed-date")}
-              </label>
-              <Choice
-                help="Best before is a quality date; use by is the label’s expiry date. Choose unspecified when the label does not say."
-                label="Date on the label"
-                value={group.dateKind}
-                onChange={(v) => g({ dateKind: v as Item["dateKind"] })}
-                options={["unspecified", "best before", "use by"]}
-              />
-            </div>
-            <details open={!!group.openedDate || !!group.rule}>
-              <summary>
-                After opening <ChevronDown />
-              </summary>
-              <p className="muted">
-                Record the instructions on the package. Opening one unit from a
-                group can be done later.
-              </p>
-              <label className="field">
-                <span>Opened date</span>
-                <Help
-                  label="Opened date"
-                  text="The day you opened this item. Leave blank for unopened items."
-                />
-                <input
-                  type="date"
-                  max={today()}
-                  {...invalid("opened-date")}
-                  value={group.openedDate}
-                  onChange={(e) => g({ openedDate: e.target.value })}
-                />
-                {fieldError("opened-date")}
-              </label>
-              <div className="form-grid">
-                <label className="field">
-                  <span>Use within after opening</span>
-                  <Help
-                    label="Use within after opening"
-                    text="The label’s duration after opening. An opening date is needed to calculate its deadline. The earlier of this deadline and the printed date is tracked."
-                  />
-                  <input
-                    type="number"
-                    min={1}
-                    max={3650}
-                    {...invalid("opening-duration")}
-                    inputMode="numeric"
-                    placeholder="No rule"
-                    value={group.rule?.amount || ""}
-                    onChange={(e) =>
-                      g({
-                        rule: e.target.value
-                          ? {
-                              amount: e.target.valueAsNumber,
-                              unit: group.rule?.unit || "days",
-                            }
-                          : undefined,
-                      })
-                    }
-                  />
-                  {fieldError("opening-duration")}
-                </label>
-                <Choice
-                  label="Duration unit"
-                  value={group.rule?.unit || "days"}
-                  options={["days", "weeks", "months"]}
-                  onChange={(v) =>
-                    g({
-                      rule: {
-                        amount: group.rule?.amount || 1,
-                        unit: v as Duration["unit"],
-                      },
-                    })
-                  }
-                />
-              </div>
-              {group.quantity > 1 && group.openedDate && (
-                <p className="notice">
-                  All {group.quantity} units in this group will have this
-                  opening date. Use “Open one” on the saved item to open just
-                  one.
-                </p>
-              )}
-            </details>
-            <div className="form-grid">
-              <label className="field">
-                <span>Quantity</span>
-                <Help
-                  label="Quantity"
-                  text="Number of separate units with these same dates and location. Use Package size for grams, millilitres or tablets per package."
-                />
-                <input
-                  {...invalid("item-quantity")}
-                  inputMode="numeric"
-                  type="number"
-                  required
-                  min={1}
-                  max={9999}
-                  value={Number.isNaN(group.quantity) ? "" : group.quantity}
-                  onChange={(e) => g({ quantity: e.target.valueAsNumber })}
-                />
-                {fieldError("item-quantity")}
-              </label>
-              <EditableChoice
-                label="Location"
-                value={group.location}
-                onChange={(value) => g({ location: value })}
-                defaults={locations}
-                customValues={records.items.map((i) => i.location)}
-              />
-            </div>
-            <div className="form-grid">
-              <EditableChoice
-                label="Category"
-                value={product.category}
-                onChange={(value) => p({ category: value })}
-                defaults={categories}
-                customValues={records.products.map((p) => p.category)}
-              />
-
-              <label className="field">
-                <span>Brand</span>
-                <input
-                  maxLength={200}
-                  placeholder="e.g. Haruharu wonder"
-                  name="until-product-brand"
-                  autoComplete="off"
-                  autoCorrect="off"
-                  value={product.brand}
-                  onChange={(e) => p({ brand: e.target.value })}
-                />
-              </label>
-            </div>
-            <details open={!!group.packagingPhotoId}>
-              <summary>
-                Photos & label recognition <Camera />
-              </summary>
+            <Disclosure
+              title="Photos & label recognition"
+              defaultOpen
+              className="photo-section"
+            >
               <div className="form-grid">
                 <div>
                   <label className="field">
-                    <span>Product photo</span>
-                    <Help
-                      label="Product photo"
-                      text="A picture for your shelf. Choose an existing photo or use your device camera and its native flash controls. Keep the whole name visible for recognition."
-                    />
+                    <span className="field-label">
+                      Product photo
+                      <Help
+                        label="Product photo"
+                        text="JPEG, PNG or WebP, up to 12 MB. Keep the name visible for recognition."
+                      />
+                    </span>
                     <span className="photo-upload">
                       <Camera size={18} />{" "}
                       {product.photoId
@@ -538,9 +421,14 @@ export function Editor({
                       aria-label="Product photo"
                       type="file"
                       accept="image/jpeg,image/png,image/webp"
-                      onChange={(e) => upload(e.target.files?.[0], false)}
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        e.target.value = "";
+                        void upload(file, false);
+                      }}
                     />
                   </label>
+                  <small className="photo-purpose">Recognize the item</small>
                   {product.photoId && (
                     <Photo
                       id={product.photoId}
@@ -586,11 +474,13 @@ export function Editor({
                 </div>
                 <div>
                   <label className="field">
-                    <span>Packaging / date photo</span>
-                    <Help
-                      label="Packaging / date photo"
-                      text="Keep a clear original photo of the printed date and storage instructions. Your device camera controls flash; existing photos also work."
-                    />
+                    <span className="field-label">
+                      Label photo
+                      <Help
+                        label="Label photo"
+                        text="JPEG, PNG or WebP, up to 12 MB. The original label photo is kept."
+                      />
+                    </span>
                     <span className="photo-upload">
                       <Camera size={18} />{" "}
                       {group.packagingPhotoId
@@ -599,12 +489,19 @@ export function Editor({
                     </span>
                     <input
                       className="file-input"
-                      aria-label="Packaging photo"
+                      aria-label="Label photo"
                       type="file"
                       accept="image/jpeg,image/png,image/webp"
-                      onChange={(e) => upload(e.target.files?.[0], true)}
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        e.target.value = "";
+                        void upload(file, true);
+                      }}
                     />
                   </label>
+                  <small className="photo-purpose">
+                    Read the date and instructions
+                  </small>
                   {group.packagingPhotoId && (
                     <Photo
                       id={group.packagingPhotoId}
@@ -615,10 +512,7 @@ export function Editor({
                   )}
                 </div>
               </div>
-              <small>
-                JPEG, PNG, WebP · up to 12 MB. Product photos are compressed;
-                the original packaging photo is preserved.
-              </small>
+
               {group.packagingPhotoId && (
                 <>
                   <Choice
@@ -673,8 +567,10 @@ export function Editor({
                     />
                   </label>
                   <p>
-                    These are possibilities, not confirmed dates. Numeric
-                    date order may be ambiguous. Two-digit years are shown as 2000–2099. Check the year and order against the original before choosing.
+                    These are possibilities, not confirmed dates. Numeric date
+                    order may be ambiguous. Two-digit years are shown as
+                    2000–2099. Check the year and order against the original
+                    before choosing.
                   </p>
                   {recognition.dates.map((d) => (
                     <button
@@ -720,29 +616,166 @@ export function Editor({
                   )}
                 </div>
               )}
-            </details>
-            <details>
-              <summary>
-                More details <Plus />
-              </summary>
+            </Disclosure>
+            <section className="date-section" aria-label="Optional dates">
+              <h2>
+                Dates <span>optional</span>
+              </h2>
+              <div className="form-grid">
+                <DateField
+                  {...invalid("printed-date")}
+                  label="Printed date"
+                  value={group.printedDate}
+                  onChange={(value) => g({ printedDate: value })}
+                  help="Optional date printed on the package. The earlier printed or after-opening date is tracked."
+                  error={fieldError("printed-date")}
+                />
+                <Choice
+                  help="Best before is a quality date; use by is the label’s expiry date. Choose unspecified when the label does not say."
+                  label="Date type"
+                  value={group.dateKind}
+                  onChange={(v) => g({ dateKind: v as Item["dateKind"] })}
+                  options={["unspecified", "best before", "use by"]}
+                />
+              </div>
+            </section>
+            <Disclosure
+              title="After opening"
+              defaultOpen={!!group.openedDate || !!group.rule}
+            >
+              <p className="muted">
+                Record the instructions on the package. Opening one unit from a
+                group can be done later.
+              </p>
+              <DateField
+                {...invalid("opened-date")}
+                label="Opened date"
+                value={group.openedDate}
+                onChange={(value) => g({ openedDate: value })}
+                help="The day you opened the item. Leave empty for unopened items."
+                error={fieldError("opened-date")}
+              />
               <div className="form-grid">
                 <label className="field">
-                  <span>Purchase date</span>
+                  <span className="field-label">
+                    Use within after opening
+                    <Help
+                      label="Use within after opening"
+                      text="The label’s duration after opening. An opening date is needed to calculate its deadline. The earlier of this deadline and the printed date is tracked."
+                    />
+                  </span>
                   <input
-                    type="date"
-                    max={today()}
-                    {...invalid("purchase-date")}
-                    value={group.purchaseDate}
-                    onChange={(e) => g({ purchaseDate: e.target.value })}
+                    type="number"
+                    min={1}
+                    max={3650}
+                    {...invalid("opening-duration")}
+                    inputMode="numeric"
+                    placeholder="No rule"
+                    value={group.rule?.amount || ""}
+                    onChange={(e) =>
+                      g({
+                        rule: e.target.value
+                          ? {
+                              amount: e.target.valueAsNumber,
+                              unit: group.rule?.unit || "days",
+                            }
+                          : undefined,
+                      })
+                    }
                   />
-                  {fieldError("purchase-date")}
+                  {fieldError("opening-duration")}
                 </label>
+                <Choice
+                  label="Duration unit"
+                  value={group.rule?.unit || "days"}
+                  options={["days", "weeks", "months"]}
+                  onChange={(v) =>
+                    g({
+                      rule: {
+                        amount: group.rule?.amount || 1,
+                        unit: v as Duration["unit"],
+                      },
+                    })
+                  }
+                />
+              </div>
+              {group.quantity > 1 && group.openedDate && (
+                <p className="notice">
+                  All {group.quantity} units in this group will have this
+                  opening date. Use “Open one” on the saved item to open just
+                  one.
+                </p>
+              )}
+            </Disclosure>
+            <Disclosure title="More details" defaultOpen={!!item}>
+              <div className="form-grid">
                 <label className="field">
-                  <span>Package size</span>
-                  <Help
-                    label="Package size"
-                    text="Amount in one package, for example 20 ml or 30 tablets. This does not change the number of units."
+                  <span className="field-label">
+                    Quantity
+                    <Help
+                      label="Quantity"
+                      text="Number of separate units with these same dates and location. Use Package size for grams, millilitres or tablets per package."
+                    />
+                  </span>
+                  <input
+                    {...invalid("item-quantity")}
+                    inputMode="numeric"
+                    type="number"
+                    required
+                    min={1}
+                    max={9999}
+                    value={Number.isNaN(group.quantity) ? "" : group.quantity}
+                    onChange={(e) => g({ quantity: e.target.valueAsNumber })}
                   />
+                  {fieldError("item-quantity")}
+                </label>
+                <EditableChoice
+                  label="Location"
+                  value={group.location}
+                  onChange={(value) => g({ location: value })}
+                  defaults={locations}
+                  customValues={records.items.map((i) => i.location)}
+                />
+              </div>
+              <div className="form-grid">
+                <EditableChoice
+                  label="Category"
+                  value={product.category}
+                  onChange={(value) => p({ category: value })}
+                  defaults={categories}
+                  customValues={records.products.map((p) => p.category)}
+                />
+
+                <label className="field">
+                  <span>Brand</span>
+                  <input
+                    maxLength={200}
+                    placeholder="e.g. Haruharu wonder"
+                    name="until-product-brand"
+                    autoComplete="off"
+                    autoCorrect="off"
+                    value={product.brand}
+                    onChange={(e) => p({ brand: e.target.value })}
+                  />
+                </label>
+              </div>
+
+              <div className="form-grid">
+                <DateField
+                  {...invalid("purchase-date")}
+                  label="Purchase date"
+                  value={group.purchaseDate}
+                  onChange={(value) => g({ purchaseDate: value })}
+                  error={fieldError("purchase-date")}
+                />
+                <label className="field">
+                  <span className="field-label">
+                    Package size
+                    <Help
+                      label="Package size"
+                      text="Amount in one package, for example 20 ml or 30 tablets. This does not change the number of units."
+                    />
+                  </span>
                   <input
                     maxLength={100}
                     aria-label="Package size"
@@ -761,7 +794,7 @@ export function Editor({
                   onChange={(e) => g({ notes: e.target.value })}
                 />
               </label>
-            </details>
+            </Disclosure>
             {warning && (
               <div className="notice">
                 <p>
@@ -790,7 +823,7 @@ export function Editor({
             )}
           </div>
           <div className="form-footer">
-            <button type="button" onClick={onClose} disabled={busy}>
+            <button type="button" onClick={requestClose} disabled={busy}>
               Cancel
             </button>
             <button
@@ -815,6 +848,20 @@ export function Editor({
             }}
           />
         )}
+        <AlertDialog open={confirmClose} onOpenChange={setConfirmClose}>
+          <AlertDialogContent className="discard-dialog">
+            <AlertDialogTitle>Discard your changes?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Your unsaved details and photos will be lost.
+            </AlertDialogDescription>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Keep editing</AlertDialogCancel>
+              <AlertDialogAction onClick={onClose}>
+                Discard changes
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </DialogContent>
     </Dialog>
   );

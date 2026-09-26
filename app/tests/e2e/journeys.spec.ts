@@ -1,3 +1,4 @@
+import {expandSection,setDate} from "./editor-helpers";
 import { test, expect } from "@playwright/test";
 // Local test harness emulates the identity asserted by Sites dispatch, not a mocked API.
 test.use({
@@ -23,9 +24,10 @@ test("real item lifecycle, reload, mobile layout and manual barcode fallback", a
   await expect(page.getByText("No items yet")).toBeVisible();
   await page.getByRole("button", { name: "Add item", exact: true }).click();
   await page.getByLabel("Product name *").fill("Greek yogurt");
-  await page.getByLabel("Printed date", { exact: true }).fill(localDate(3));
+  await setDate(page, "Printed date", localDate(3));
+  await expandSection(page, "More details");
   await page.getByLabel("Quantity", { exact: true }).fill("3");
-  await page.getByText("After opening", { exact: true }).click();
+  await expandSection(page, "After opening");
   await page.getByLabel("Use within after opening", {exact:true}).fill("2");
   await page
     .getByRole("button", { name: "Add item", exact: true })
@@ -55,7 +57,7 @@ test("real item lifecycle, reload, mobile layout and manual barcode fallback", a
     page.getByRole("heading", { name: "Greek yogurt" }),
   ).toBeVisible();
   await page.getByRole("button", { name: "Add again" }).click();
-  await page.getByLabel("Printed date", { exact: true }).fill(localDate(15));
+  await setDate(page, "Printed date", localDate(15));
   await page
     .getByRole("button", { name: "Add item", exact: true })
     .last()
@@ -131,7 +133,7 @@ test("offline shell reload and offline edit persist", async ({
   await expect(page.getByText("No items yet")).toBeVisible();
   await page.getByRole("button", { name: "Add item", exact: true }).click();
   await page.getByLabel("Product name *").fill("Offline oats");
-  await page.getByLabel("Printed date", { exact: true }).fill(localDate(2));
+  await setDate(page, "Printed date", localDate(2));
   await page
     .getByRole("button", { name: "Add item", exact: true })
     .last()
@@ -156,9 +158,9 @@ test("actual photo OCR exposes text and requires confirmation", async ({
   await page.goto("/");
   await page.getByRole("button", { name: "Add item", exact: true }).click();
   await page.getByLabel("Product name *").fill("Label test");
-  await page.getByText("Photos & label recognition", { exact: true }).click();
+  await expandSection(page, "Photos & label recognition");
   await page
-    .getByLabel("Packaging photo", { exact: true })
+    .getByLabel("Label photo", { exact: true })
     .setInputFiles("tests/fixtures/label.png");
   await expect(
     page.getByRole("button", { name: "Read date from photo" }),

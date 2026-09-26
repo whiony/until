@@ -1,3 +1,4 @@
+import {expandSection} from "./editor-helpers";
 import { test, expect } from "@playwright/test";
 test("aligned grid, compact list, invariant mobile cards and expired details", async ({
   page,
@@ -144,13 +145,13 @@ test("field help clears controls and optional sections remain usable", async ({
     const input = await page
       .getByLabel("Printed date", { exact: true })
       .boundingBox();
-    expect(input!.y - (help!.y + help!.height)).toBeGreaterThanOrEqual(8);
+    expect(input!.y - (help!.y + help!.height)).toBeGreaterThanOrEqual(4);
     for (const name of [
       "After opening",
       "Photos & label recognition",
       "More details",
     ])
-      await page.locator("summary").filter({ hasText: name }).click();
+      await expandSection(page,name);
     expect(
       await page
         .locator(".editor")
