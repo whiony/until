@@ -26,7 +26,7 @@ test("real item lifecycle, reload, mobile layout and manual barcode fallback", a
   await page.getByLabel("Printed date", { exact: true }).fill(localDate(3));
   await page.getByLabel("Quantity", { exact: true }).fill("3");
   await page.getByText("After opening", { exact: true }).click();
-  await page.getByLabel("Use within after opening").fill("2");
+  await page.getByLabel("Use within after opening", {exact:true}).fill("2");
   await page
     .getByRole("button", { name: "Add item", exact: true })
     .last()
@@ -65,9 +65,7 @@ test("real item lifecycle, reload, mobile layout and manual barcode fallback", a
     page.getByRole("button", { name: "View Greek yogurt" }),
   ).toHaveCount(2);
   await page.getByRole("button", { name: "Add item", exact: true }).click();
-  await page.getByLabel("Barcode", { exact: true }).fill("bad");
-  await page.getByRole("button", { name: "Look up", exact: true }).click();
-  await expect(page.getByRole("alert")).toContainText("barcode");
+  await expect(page.getByLabel("Barcode", { exact: true })).toHaveCount(0);
   await page.getByLabel("Product name *").fill("Hand cream");
   await page
     .getByRole("button", { name: "Add item", exact: true })
@@ -198,9 +196,7 @@ test("actual photo OCR exposes text and requires confirmation", async ({
   ).toBeVisible();
 });
 
-test("camera denial and provider failure retain manual entry", async ({
-  page,
-}) => {
+test("camera denial retains manual creation", async ({ page }) => {
   await page.context().setExtraHTTPHeaders({
     "oai-authenticated-user-id": crypto.randomUUID(),
     "oai-authenticated-user-email": "journeys@example.test",
@@ -211,14 +207,6 @@ test("camera denial and provider failure retain manual entry", async ({
   await expect(
     page.getByText("Camera could not start.", { exact: false }),
   ).toBeVisible();
-  await page
-    .getByRole("button", { name: "Stop camera · enter manually" })
-    .click();
-  await page.route("**/api/lookup?*", (route) =>
-    route.fulfill({ status: 503, body: "Unavailable" }),
-  );
-  await page.getByLabel("Barcode", { exact: true }).fill("3017620422003");
-  await page.getByRole("button", { name: "Look up", exact: true }).click();
-  await expect(page.getByRole("alert")).toContainText("unavailable");
+  await page.getByRole("button", { name: "Stop camera" }).click();
   await expect(page.getByLabel("Product name *")).toBeEditable();
 });

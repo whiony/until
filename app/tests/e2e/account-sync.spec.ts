@@ -204,12 +204,13 @@ test("existing IndexedDB records migrate once, defaults remain selectable and no
 }) => {
   const context = await session(browser, crypto.randomUUID());
   const page = await context.newPage();
-  await page.goto("/");
-  await expect(page.getByText("No items yet")).toBeVisible();
-  await context.setOffline(true);
+  // Seed the legacy database before app code can create an account namespace.
+  await page.route("**/__legacy-fixture", route => route.fulfill({contentType:"text/html",body:"<!doctype html><title>Legacy fixture</title>"}));
+  await page.goto("/__legacy-fixture");
   await page.evaluate(async () => {
     const db = await new Promise<IDBDatabase>((resolve, reject) => {
       const request = indexedDB.open("until", 1);
+      request.onupgradeneeded = () => {request.result.createObjectStore("state");request.result.createObjectStore("photos");};
       request.onsuccess = () => resolve(request.result);
       request.onerror = () => reject(request.error);
     });
@@ -271,7 +272,7 @@ test("existing IndexedDB records migrate once, defaults remain selectable and no
       tx.oncomplete = () => resolve();
     });
   });
-  await context.setOffline(false);
+  await page.goto("/");
   await all(page);
   await expect(
     page.getByRole("button", { name: "View Existing custom item" }),
@@ -332,7 +333,9 @@ test("mobile editor, keyboard-size viewport, crop and replacement survive reload
   expect(editorBox!.height).toBe(440);
   const save = page.getByRole("button", { name: "Add item", exact: true });
   await expect(save).not.toBeVisible();
-  await expect(page.getByRole("button", { name: "Done typing" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Done typing" })).toHaveCount(
+    0,
+  );
   await expect(
     page.getByLabel("Package size", { exact: true }),
   ).toBeInViewport();

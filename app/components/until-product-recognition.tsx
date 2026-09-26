@@ -14,6 +14,7 @@ export function ProductRecognition({
     [text, setText] = useState(""),
     [name, setName] = useState(""),
     [language, setLanguage] = useState("eng");
+  const [area, setArea] = useState<"whole" | "top" | "bottom">("whole");
   const attempt = useRef(0);
   useEffect(
     () => () => {
@@ -30,7 +31,13 @@ export function ProductRecognition({
     try {
       const blob = await getBlob();
       if (!blob) throw Error("Missing photo");
-      const result = await recognizePhoto(blob, language, () => {}, "product");
+      const result = await recognizePhoto(
+        blob,
+        language,
+        () => {},
+        "product",
+        area,
+      );
       if (current !== attempt.current) return;
       setText(result.text);
       const candidates = productTextCandidates(result.text, result.confidence);
@@ -66,6 +73,20 @@ export function ProductRecognition({
           { value: "hrv", label: "Croatian" },
         ]}
       />
+      <Choice
+        label="Product text area"
+        value={area}
+        onChange={(v) => setArea(v as typeof area)}
+        options={[
+          { value: "whole", label: "Whole photo" },
+          { value: "top", label: "Top half" },
+          { value: "bottom", label: "Bottom half" },
+        ]}
+      />
+      <small>
+        Choose the language printed on the package. Try a closer photo with the
+        complete name; decorative logos can be misread.
+      </small>
       <button type="button" onClick={recognize} disabled={busy}>
         {busy ? "Reading product…" : "Recognize product"}
       </button>

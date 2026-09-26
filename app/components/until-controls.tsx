@@ -1,4 +1,5 @@
 "use client";
+import { Help } from "./until-help";
 import { useState } from "react";
 import {
   Select,
@@ -13,7 +14,9 @@ export function Choice({
   value,
   onChange,
   options,
+  help,
 }: {
+  help?: string;
   label: string;
   value: string;
   onChange: (v: string) => void;
@@ -22,6 +25,7 @@ export function Choice({
   return (
     <label className="field">
       <span>{label}</span>
+      {help && <Help label={label} text={help} />}
       <Select value={value} onValueChange={onChange}>
         <SelectTrigger aria-label={label}>
           <SelectValue />

@@ -258,7 +258,7 @@ export default function UntilApp() {
                   {demo && <span className="demo-tag">Demo</span>}
                   <p className="muted">
                     {[p.brand, p.size].filter(Boolean).join(" · ") ||
-                      `${i.quantity} ${i.quantity === 1 ? "unit" : "units"} on your shelf`}
+                      `${i.quantity} ${i.quantity === 1 ? "unit" : "units"}${i.status === "active" ? " on your shelf" : ` ${i.status}`}`}
                   </p>
                   <div className="countdown">
                     <Clock3 size={17} />
@@ -269,15 +269,22 @@ export default function UntilApp() {
                         : "Discarded"}
                   </div>
                   <p className="date-caption">
-                    {deadline(i).date || "Add a date when you have it"}
-                    {i.openedDate ? " · Opened" : ""}
+                    {i.status === "active"
+                      ? deadline(i).date || "Add a date when you have it"
+                      : `Recorded as ${i.status}`}
+                    {i.status === "active" && i.openedDate ? " · Opened" : ""}
                   </p>
                 </div>
                 <ArrowUpRight className="card-arrow" size={19} />
               </button>
               <div className="card-bottom">
                 <span>
-                  ×{i.quantity} {i.openedDate ? "opened" : "unopened"}
+                  ×{i.quantity}{" "}
+                  {i.status === "active"
+                    ? i.openedDate
+                      ? "opened"
+                      : "unopened"
+                    : i.status}
                 </span>
                 {i.status === "active" ? (
                   <button
@@ -325,16 +332,11 @@ export default function UntilApp() {
       <Toaster position="top-center" />
       <div className="app-shell">
         <header className="topbar">
-          <Link className="brand" href="/" aria-label="Until home">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              className="brand-mark"
-              src="/favicon.svg"
-              width="32"
-              height="32"
-              alt=""
-            />
-            until
+          <Link className="brand" href="/" aria-label="Until">
+            <span className="brand-letter" aria-hidden="true">
+              u
+            </span>
+            <span aria-hidden="true">ntil</span>
             <span className="brand-period">.</span>
           </Link>
           <div className="top-actions">
@@ -522,11 +524,13 @@ export default function UntilApp() {
                       ]}
                     />
                     <button
-                      className="icon-button"
+                      className="view-toggle"
+                      aria-pressed={list}
                       aria-label={list ? "Show grid" : "Show list"}
                       onClick={() => setList(!list)}
                     >
-                      {list ? <Grid2X2 /> : <LayoutList />}
+                      {list ? <LayoutList /> : <Grid2X2 />}{" "}
+                      {list ? "List" : "Grid"}
                     </button>
                   </div>
                 </div>
@@ -557,7 +561,7 @@ export default function UntilApp() {
                       <Empty>
                         <Sun className="empty-sun" size={30} />
                         <EmptyTitle>
-                          {!records.items.length
+                          {!active.length && status === "active" && !filtered
                             ? "No items yet"
                             : filtered && soon.length
                               ? "No matching items"
@@ -630,21 +634,32 @@ export default function UntilApp() {
                           <Sun className="empty-sun" size={30} />
                           <EmptyTitle>
                             {view === "history"
-                              ? "No history yet"
-                              : !records.items.length
+                              ? filtered
+                                ? "No matching items"
+                                : "No history yet"
+                              : !active.length &&
+                                  status === "active" &&
+                                  !filtered
                                 ? "No items yet"
                                 : "No matching items"}
                           </EmptyTitle>
                           <EmptyDescription>
                             {view === "history"
                               ? "Used and discarded items will appear here, ready to add again."
-                              : !records.items.length
+                              : !active.length &&
+                                  status === "active" &&
+                                  !filtered
                                 ? "Add an item to start tracking its date."
                                 : "Try clearing your filters."}
                           </EmptyDescription>
                           <button
                             onClick={() => {
-                              if (!records.items.length && view !== "history") {
+                              if (
+                                !active.length &&
+                                status === "active" &&
+                                !filtered &&
+                                view !== "history"
+                              ) {
                                 setEditor({});
                                 return;
                               }
@@ -654,7 +669,10 @@ export default function UntilApp() {
                               setStatus("active");
                             }}
                           >
-                            {!records.items.length && view !== "history"
+                            {!active.length &&
+                            status === "active" &&
+                            !filtered &&
+                            view !== "history"
                               ? "Add an item"
                               : "Clear filters"}
                           </button>
@@ -733,7 +751,11 @@ export default function UntilApp() {
             <h2
               className={`detail-countdown ${urgency(selected, records.settings.soonDays, now)}`}
             >
-              {countdown(selected, now)}
+              {selected.status === "active"
+                ? countdown(selected, now)
+                : selected.status === "used"
+                  ? "Used"
+                  : "Discarded"}
             </h2>
             <dl>
               <div>
@@ -752,11 +774,16 @@ export default function UntilApp() {
               </div>
               <div>
                 <dt>Opened</dt>
-                <dd>{selected.openedDate || "Unopened"}</dd>
+                <dd>
+                  {selected.openedDate ||
+                    (selected.status === "active"
+                      ? "Unopened"
+                      : "Opening date not recorded")}
+                </dd>
               </div>
               <div>
                 <dt>After-opening deadline</dt>
-                <dd>{deadline(selected).opening || "Not applicable yet"}</dd>
+                <dd>{deadline(selected).opening || (selected.status === "active" ? "Not applicable yet" : "Not recorded")}</dd>
               </div>
               <div>
                 <dt>Quantity</dt>
@@ -778,9 +805,11 @@ export default function UntilApp() {
               )}
             </dl>
             <p className="notice">
-              {deadline(selected).date
-                ? `The ${deadline(selected).controls} controls this countdown because it is the earliest applicable date.`
-                : "Add a date to see a countdown."}
+              {selected.status !== "active"
+                ? "Historical record. Add again to track a new item."
+                : deadline(selected).date
+                  ? `The ${deadline(selected).controls} controls this countdown because it is the earliest applicable date.`
+                  : "Add a date to see a countdown."}
             </p>
             {selected.dateKind === "best before" && (
               <p className="muted">

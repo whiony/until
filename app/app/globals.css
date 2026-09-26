@@ -967,7 +967,7 @@ input[type="time"] {
 @media (max-width: 760px) {
   .topbar {
     height: 78px;
-    padding: env(safe-area-inset-top) 20px 0;
+    padding: var(--safe-top) 20px 0;
     gap: 8px;
   }
   .brand {
@@ -1585,8 +1585,8 @@ h2 {
 }
 @media (max-width: 760px) {
   .topbar {
-    height: calc(60px + env(safe-area-inset-top));
-    padding: env(safe-area-inset-top) 18px 0;
+    height: calc(60px + var(--safe-top));
+    padding: var(--safe-top) 18px 0;
   }
   .brand {
     font-size: 27px;
@@ -1672,14 +1672,14 @@ h2 {
     animation: none !important;
     border: 0;
     border-radius: 0 !important;
-    padding: calc(16px + env(safe-area-inset-top)) 20px 0 !important;
+    padding: calc(16px + var(--safe-top)) 20px 0 !important;
   }
   .editor.modal [data-slot="dialog-title"] {
     font-size: 23px !important;
     margin: 0;
   }
   .editor.modal [data-slot="dialog-close"] {
-    top: calc(6px + env(safe-area-inset-top));
+    top: calc(6px + var(--safe-top));
     right: 12px;
   }
   .editor.modal [data-slot="dialog-description"] {
@@ -1885,4 +1885,166 @@ h2 {
   .editor textarea {
     scroll-margin: 16px;
   }
+}
+
+/* Original typography, compact controls and safe mobile surfaces. */
+body {
+  font-family: Arial, Helvetica, sans-serif;
+}
+h1,
+.brand,
+.modal [data-slot="dialog-title"],
+[data-slot="empty-title"] {
+  font-family: Georgia, "Times New Roman", serif;
+  font-weight: 400;
+}
+h1 {
+  font-size: clamp(32px, 3.4vw, 44px);
+}
+.brand {
+  font-size: 36px;
+  gap: 0;
+  letter-spacing: -1.6px;
+}
+.brand-letter {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 38px;
+  margin-right: 2px;
+  background: #dce9b4;
+  border-radius: 12px 12px 4px 12px;
+  color: #294d3b;
+  font-size: 36px;
+  line-height: 1;
+  padding-bottom: 5px;
+}
+.brand-period {
+  display: inline;
+  color: #6f862e;
+}
+.view-toggle {
+  min-height: 46px;
+  padding: 10px 14px;
+  background: var(--accent);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  font-size: 14px;
+}
+.demo-tag {
+  width: fit-content;
+}
+.scan-compact {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 16px;
+}
+.scan-compact small,
+.scan-compact .scanner,
+.scan-compact .suggestion {
+  flex-basis: 100%;
+}
+.field {
+  position: relative;
+}
+.field-help {
+  position: absolute;
+  top: 0;
+  right: 0;
+  min-height: 28px;
+  width: 28px;
+  padding: 0;
+  border-radius: 50%;
+  font-size: 13px;
+  background: transparent;
+}
+.field-help-content {
+  background: var(--card);
+  color: var(--foreground);
+  font-size: 14px;
+  line-height: 1.5;
+  z-index: 100;
+}
+@media (max-width: 760px) {
+  .topbar {
+    height: auto;
+    min-height: calc(64px + var(--safe-top));
+    padding: calc(10px + var(--safe-top)) 16px 10px;
+  }
+  .app-shell::before {
+    content: "";
+    position: fixed;
+    inset: 0 0 auto;
+    height: var(--safe-top);
+    background: var(--background);
+    z-index: 45;
+    pointer-events: none;
+  }
+  .filter-row {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: stretch;
+    width: 100%;
+  }
+  .filter-row .field {
+    min-width: 0;
+    width: 100%;
+    margin: 0;
+  }
+  .filter-row [data-slot="select-trigger"] {
+    width: 100%;
+    height: 52px;
+    min-width: 0;
+    padding: 8px 10px;
+  }
+  .filter-row [data-slot="select-value"] {
+    white-space: normal;
+    text-align: left;
+    line-height: 1.2;
+    overflow-wrap: anywhere;
+  }
+  .filter-row .view-toggle {
+    display: flex;
+    height: 52px;
+  }
+  .keyboard-open .editor.modal {
+    padding-top: calc(12px + var(--safe-top)) !important;
+  }
+  .keyboard-open .editor [data-slot="dialog-close"] {
+    top: calc(6px + var(--safe-top));
+  }
+  body:has(.editor) [data-slot="dialog-overlay"] {
+    background: #fffefb;
+  }
+  body:has(.editor) {
+    background: #fffefb;
+  }
+  .editor.modal {
+    box-shadow: none;
+    background: #fffefb;
+  }
+  .editor-fields {
+    padding-bottom: 40px;
+  }
+  .brand {
+    font-size: 34px;
+  }
+}
+@supports (-webkit-touch-callout: none) {
+  @media (display-mode: standalone) and (max-width: 760px) {
+    .topbar {
+      padding-top: calc(10px + max(var(--safe-top), 20px));
+    }
+    .app-shell::before {
+      height: max(var(--safe-top), 20px);
+    }
+  }
+}
+
+:root { --safe-top: env(safe-area-inset-top, 0px); }
+.editor .field > span:first-child { padding-right:32px; }
+@media (max-width:760px) {
+ .section-heading { gap:12px; }
+ .section-heading > span { max-width:60%; text-align:right; font-size:12px; }
 }

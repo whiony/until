@@ -1,5 +1,6 @@
 "use client";
 import { useState, useCallback, useRef } from "react";
+import { Help } from "./until-help";
 import { ScanBarcode, Camera, Plus, ChevronDown } from "lucide-react";
 import {
   Dialog,
@@ -137,6 +138,8 @@ export function Editor({
   const [recognition, setRecognition] = useState<Recognition | null>(null);
   const [ocrBusy, setOcrBusy] = useState(false);
   const [language, setLanguage] = useState("eng");
+  const [dateArea, setDateArea] = useState<"whole" | "top" | "bottom">("whole");
+  const [originalProduct, setOriginalProduct] = useState<Blob | null>(null);
   const [ack, setAck] = useState(false);
   const p = (patch: Partial<Product>) =>
     setProduct((v) => ({ ...v, ...patch }));
@@ -162,7 +165,7 @@ export function Editor({
     setScan(false);
     setProduct((v) => ({ ...v, barcode: code }));
     setInfo(
-      "Barcode captured. Select Look up to search, or continue manually.",
+      "Barcode captured. Look up scanned barcode, or continue with your own details.",
     );
   }, []);
   async function accept() {
@@ -171,14 +174,15 @@ export function Editor({
       (p) => p.id === suggestion.savedProductId,
     );
     if (saved) {
+      setOriginalProduct(null);
       setProduct({ ...saved });
       setProductVersion(saved.updatedAt);
     } else {
       p({
-        name: suggestion.name,
-        brand: suggestion.brand,
+        name: suggestion.name || product.name,
+        brand: suggestion.brand || product.brand,
         category: suggestion.category,
-        size: suggestion.size,
+        size: suggestion.size || product.size,
         barcode: suggestion.barcode,
         provenance: {
           provider: suggestion.source,
@@ -187,7 +191,7 @@ export function Editor({
           completeness: suggestion.completeness,
         },
       });
-      if (suggestion.image) {
+      if (suggestion.image && !product.photoId) {
         try {
           const response = await fetch(suggestion.image, {
             signal: AbortSignal.timeout(7000),
@@ -219,7 +223,9 @@ export function Editor({
       if (packaging) {
         g({ packagingPhotoId: id, recognition: undefined });
         setRecognition(null);
-      } else setCropSource(b);
+      } else {
+        setCropSource(b);
+      }
     } catch (e) {
       setError((e as Error).message);
     }
@@ -231,7 +237,13 @@ export function Editor({
       const id = group.packagingPhotoId!;
       const blob = photos[id] || (await getPhoto(id));
       if (!blob) throw Error("Photo is missing. Please attach it again.");
-      const result = await recognizePhoto(blob, language, setInfo);
+      const result = await recognizePhoto(
+        blob,
+        language,
+        setInfo,
+        "date",
+        dateArea,
+      );
       setRecognition(result);
       setInfo(
         "Review the extracted text against your photo. Nothing has been applied.",
@@ -286,16 +298,6 @@ export function Editor({
         <DialogTitle>
           {item ? "Edit item" : initialProduct ? "Add another" : "Add item"}
         </DialogTitle>
-        <button
-          type="button"
-          className="keyboard-done"
-          onClick={() => {
-            if (document.activeElement instanceof HTMLElement)
-              document.activeElement.blur();
-          }}
-        >
-          Done typing
-        </button>
         <DialogDescription>
           {item
             ? "Update this item’s dates and details."
@@ -308,38 +310,38 @@ export function Editor({
                 {error}
               </p>
             )}
+            <label className="field">
+              <span>Product name *</span>
+              <textarea
+                {...invalid("product-name")}
+                rows={2}
+                required
+                maxLength={200}
+                value={product.name}
+                placeholder="e.g. Greek yogurt"
+                onChange={(e) => p({ name: e.target.value })}
+              />
+              {fieldError("product-name")}
+            </label>
             {!item && (
-              <section className="scan-block">
+              <section className="scan-compact">
                 <div className="inline">
                   <button type="button" onClick={() => setScan(true)}>
                     <ScanBarcode /> Scan barcode
                   </button>
-                  <span className="muted">or add it yourself below</span>
                 </div>
                 {scan && (
                   <Scanner onCode={scanned} onClose={() => setScan(false)} />
                 )}
-                <div className="inline">
-                  <input
-                    aria-label="Barcode"
-                    name="until-product-barcode"
-                    type="text"
-                    autoComplete="off"
-                    autoCorrect="off"
-                    spellCheck={false}
-                    inputMode="numeric"
-                    placeholder="Enter barcode"
-                    value={product.barcode}
-                    onChange={(e) => p({ barcode: e.target.value })}
-                  />
+                {product.barcode && (
                   <button
                     type="button"
-                    disabled={lookupBusy || !product.barcode}
+                    disabled={lookupBusy}
                     onClick={() => lookup(product.barcode)}
                   >
-                    {lookupBusy ? "Searching…" : "Look up"}
+                    {lookupBusy ? "Searching…" : "Look up scanned barcode"}
                   </button>
-                </div>
+                )}
                 {suggestion && (
                   <div className="suggestion">
                     <strong>{suggestion.name}</strong>
@@ -365,22 +367,13 @@ export function Editor({
                 </small>
               </section>
             )}
-            <label className="field">
-              <span>Product name *</span>
-              <textarea
-                {...invalid("product-name")}
-                rows={2}
-                required
-                maxLength={200}
-                value={product.name}
-                placeholder="e.g. Greek yogurt"
-                onChange={(e) => p({ name: e.target.value })}
-              />
-              {fieldError("product-name")}
-            </label>
             <div className="form-grid">
               <label className="field">
                 <span>Printed date</span>
+                <Help
+                  label="Printed date"
+                  text="Choose the date printed on this package using your device’s local date format. Leave it blank if unknown. The earlier applicable printed or after-opening date is tracked."
+                />
                 <input
                   {...invalid("printed-date")}
                   aria-label="Printed date"
@@ -393,55 +386,12 @@ export function Editor({
                 {fieldError("printed-date")}
               </label>
               <Choice
+                help="Best before is a quality date; use by is the label’s expiry date. Choose unspecified when the label does not say."
                 label="Date on the label"
                 value={group.dateKind}
                 onChange={(v) => g({ dateKind: v as Item["dateKind"] })}
                 options={["unspecified", "best before", "use by"]}
               />
-            </div>
-            <div className="form-grid">
-              <label className="field">
-                <span>Quantity</span>
-                <input
-                  {...invalid("item-quantity")}
-                  inputMode="numeric"
-                  type="number"
-                  required
-                  min={1}
-                  max={9999}
-                  value={Number.isNaN(group.quantity) ? "" : group.quantity}
-                  onChange={(e) => g({ quantity: e.target.valueAsNumber })}
-                />
-                {fieldError("item-quantity")}
-              </label>
-              <EditableChoice
-                label="Location"
-                value={group.location}
-                onChange={(value) => g({ location: value })}
-                defaults={locations}
-                customValues={records.items.map((i) => i.location)}
-              />
-            </div>
-            <div className="form-grid">
-              <EditableChoice
-                label="Category"
-                value={product.category}
-                onChange={(value) => p({ category: value })}
-                defaults={categories}
-                customValues={records.products.map((p) => p.category)}
-              />
-
-              <label className="field">
-                <span>Brand</span>
-                <input
-                  maxLength={200}
-                  name="until-product-brand"
-                  autoComplete="off"
-                  autoCorrect="off"
-                  value={product.brand}
-                  onChange={(e) => p({ brand: e.target.value })}
-                />
-              </label>
             </div>
             <details open={!!group.openedDate || !!group.rule}>
               <summary>
@@ -453,6 +403,10 @@ export function Editor({
               </p>
               <label className="field">
                 <span>Opened date</span>
+                <Help
+                  label="Opened date"
+                  text="The day you opened this item. Leave blank for unopened items."
+                />
                 <input
                   type="date"
                   max={today()}
@@ -465,6 +419,10 @@ export function Editor({
               <div className="form-grid">
                 <label className="field">
                   <span>Use within after opening</span>
+                  <Help
+                    label="Use within after opening"
+                    text="The label’s duration after opening. An opening date is needed to calculate its deadline. The earlier of this deadline and the printed date is tracked."
+                  />
                   <input
                     type="number"
                     min={1}
@@ -508,6 +466,55 @@ export function Editor({
                 </p>
               )}
             </details>
+            <div className="form-grid">
+              <label className="field">
+                <span>Quantity</span>
+                <Help
+                  label="Quantity"
+                  text="Number of separate units with these same dates and location. Use Package size for grams, millilitres or tablets per package."
+                />
+                <input
+                  {...invalid("item-quantity")}
+                  inputMode="numeric"
+                  type="number"
+                  required
+                  min={1}
+                  max={9999}
+                  value={Number.isNaN(group.quantity) ? "" : group.quantity}
+                  onChange={(e) => g({ quantity: e.target.valueAsNumber })}
+                />
+                {fieldError("item-quantity")}
+              </label>
+              <EditableChoice
+                label="Location"
+                value={group.location}
+                onChange={(value) => g({ location: value })}
+                defaults={locations}
+                customValues={records.items.map((i) => i.location)}
+              />
+            </div>
+            <div className="form-grid">
+              <EditableChoice
+                label="Category"
+                value={product.category}
+                onChange={(value) => p({ category: value })}
+                defaults={categories}
+                customValues={records.products.map((p) => p.category)}
+              />
+
+              <label className="field">
+                <span>Brand</span>
+                <input
+                  maxLength={200}
+                  placeholder="e.g. Haruharu wonder"
+                  name="until-product-brand"
+                  autoComplete="off"
+                  autoCorrect="off"
+                  value={product.brand}
+                  onChange={(e) => p({ brand: e.target.value })}
+                />
+              </label>
+            </div>
             <details open={!!group.packagingPhotoId}>
               <summary>
                 Photos & label recognition <Camera />
@@ -516,6 +523,10 @@ export function Editor({
                 <div>
                   <label className="field">
                     <span>Product photo</span>
+                    <Help
+                      label="Product photo"
+                      text="A picture for your shelf. Choose an existing photo or use your device camera and its native flash controls. Keep the whole name visible for recognition."
+                    />
                     <span className="photo-upload">
                       <Camera size={18} />{" "}
                       {product.photoId
@@ -542,6 +553,7 @@ export function Editor({
                     <ProductRecognition
                       key={product.photoId}
                       getBlob={async () =>
+                        originalProduct ||
                         photos[product.photoId!] ||
                         (await getPhoto(product.photoId!))
                       }
@@ -558,6 +570,7 @@ export function Editor({
                       type="button"
                       onClick={async () => {
                         const blob =
+                          originalProduct ||
                           photos[product.photoId!] ||
                           (await getPhoto(product.photoId!));
                         if (blob) setCropSource(blob);
@@ -574,6 +587,10 @@ export function Editor({
                 <div>
                   <label className="field">
                     <span>Packaging / date photo</span>
+                    <Help
+                      label="Packaging / date photo"
+                      text="Keep a clear original photo of the printed date and storage instructions. Your device camera controls flash; existing photos also work."
+                    />
                     <span className="photo-upload">
                       <Camera size={18} />{" "}
                       {group.packagingPhotoId
@@ -616,6 +633,21 @@ export function Editor({
                       { value: "hrv", label: "Croatian" },
                     ]}
                   />
+                  <Choice
+                    label="Date text area"
+                    value={dateArea}
+                    onChange={(v) => setDateArea(v as typeof dateArea)}
+                    options={[
+                      { value: "whole", label: "Whole photo" },
+                      { value: "top", label: "Top half" },
+                      { value: "bottom", label: "Bottom half" },
+                    ]}
+                  />
+                  <small>
+                    Choose the packaging language, independently of the app
+                    language. Focus on the half containing the date if nearby
+                    text gets in the way.
+                  </small>
                   <button type="button" disabled={ocrBusy} onClick={ocr}>
                     {ocrBusy ? "Reading photo…" : "Read date from photo"}
                   </button>
@@ -642,8 +674,7 @@ export function Editor({
                   </label>
                   <p>
                     These are possibilities, not confirmed dates. Numeric
-                    day/month order may be ambiguous. Choose only after checking
-                    the original.
+                    date order may be ambiguous. Two-digit years are shown as 2000–2099. Check the year and order against the original before choosing.
                   </p>
                   {recognition.dates.map((d) => (
                     <button
@@ -708,8 +739,13 @@ export function Editor({
                 </label>
                 <label className="field">
                   <span>Package size</span>
+                  <Help
+                    label="Package size"
+                    text="Amount in one package, for example 20 ml or 30 tablets. This does not change the number of units."
+                  />
                   <input
                     maxLength={100}
+                    aria-label="Package size"
                     placeholder="20 ml, 2 × 100 g, 30 tablets"
                     value={product.size}
                     onChange={(e) => p({ size: e.target.value })}
@@ -720,6 +756,7 @@ export function Editor({
                 <span>Notes</span>
                 <textarea
                   maxLength={5000}
+                  placeholder="Storage instructions or anything to remember"
                   value={group.notes}
                   onChange={(e) => g({ notes: e.target.value })}
                 />
@@ -773,6 +810,7 @@ export function Editor({
               const id = newId();
               setPhotos((v) => ({ ...v, [id]: blob }));
               p({ photoId: id });
+              setOriginalProduct(cropSource);
               setCropSource(null);
             }}
           />

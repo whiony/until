@@ -20,6 +20,17 @@ export function interpretText(text: string, confidence = 0): Recognition {
       if (validDate(d)) dates.add(d);
     }
   }
+  // A short year can mean day-month-year or year-month-day. Never choose for the user.
+  for (const m of text.matchAll(/\b(\d{2})[-/.](\d{2})[-/.](\d{2})\b/g)) {
+    for (const [year, month, day] of [
+      [m[3], m[2], m[1]],
+      [m[3], m[1], m[2]],
+      [m[1], m[2], m[3]],
+    ]) {
+      const candidate = `20${year}-${month}-${day}`;
+      if (validDate(candidate)) dates.add(candidate);
+    }
+  }
   const rules: Duration[] = [];
   for (const m of text.matchAll(
     /(?:within|use\s+within|after\s+opening[^\d]{0,12})\s*(\d+)\s*(days?|weeks?|months?)/gi,
@@ -33,11 +44,65 @@ export function interpretText(text: string, confidence = 0): Recognition {
   }
   return { text, dates: [...dates], rules, confidence };
 }
+export type RecognitionArea = "whole" | "top" | "bottom";
+export async function workingImage(
+  blob: Blob,
+  area: RecognitionArea,
+  threshold?: number,
+): Promise<Blob> {
+  const image = await createImageBitmap(blob);
+  try {
+    const height =
+      area === "whole" ? image.height : Math.ceil(image.height / 2);
+    const y = area === "bottom" ? image.height - height : 0;
+    const ratio = Math.min(3, 1600 / Math.max(image.width, height));
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.max(1, Math.round(image.width * ratio));
+    canvas.height = Math.max(1, Math.round(height * ratio));
+    const context = canvas.getContext("2d")!;
+    context.fillStyle = "white";
+    context.fillRect(0, 0, canvas.width, canvas.height);
+    context.drawImage(
+      image,
+      0,
+      y,
+      image.width,
+      height,
+      0,
+      0,
+      canvas.width,
+      canvas.height,
+    );
+    if (threshold !== undefined) {
+      const pixels = context.getImageData(0, 0, canvas.width, canvas.height);
+      for (let i = 0; i < pixels.data.length; i += 4) {
+        const l =
+          0.2126 * pixels.data[i] +
+          0.7152 * pixels.data[i + 1] +
+          0.0722 * pixels.data[i + 2];
+        pixels.data[i] =
+          pixels.data[i + 1] =
+          pixels.data[i + 2] =
+            l < threshold ? 0 : 255;
+      }
+      context.putImageData(pixels, 0, 0);
+    }
+    return await new Promise<Blob>((resolve, reject) =>
+      canvas.toBlob(
+        (b) => (b ? resolve(b) : reject(Error("Could not read photo"))),
+        "image/png",
+      ),
+    );
+  } finally {
+    image.close();
+  }
+}
 export async function recognizePhoto(
   blob: Blob,
   language: string,
   onProgress: (s: string) => void,
   mode: "date" | "product" = "date",
+  area: RecognitionArea = "whole",
 ): Promise<Recognition> {
   const { createWorker, PSM } = await import("tesseract.js");
   const worker = await createWorker(language, 1, {
@@ -48,53 +113,35 @@ export async function recognizePhoto(
       onProgress(`${m.status} ${Math.round(m.progress * 100) || 0}%`),
   });
   try {
-    if (mode === "product")
-      await worker.setParameters({ tessedit_pageseg_mode: PSM.SPARSE_TEXT });
-    let result = await worker.recognize(blob);
-    if (
-      mode === "product" &&
-      !productTextCandidates(result.data.text, result.data.confidence).length
-    ) {
-      // A high-contrast working copy helps text on tinted packaging. Never changes the saved photo.
-      const image = await createImageBitmap(blob);
-      try {
-        const canvas = document.createElement("canvas");
-        const ratio = Math.min(3, 1600 / Math.max(image.width, image.height));
-        canvas.width = Math.round(image.width * ratio);
-        canvas.height = Math.round(image.height * ratio);
-        const context = canvas.getContext("2d")!;
-        context.fillStyle = "white";
-        context.fillRect(0, 0, canvas.width, canvas.height);
-        context.drawImage(image, 0, 0, canvas.width, canvas.height);
-        const pixels = context.getImageData(0, 0, canvas.width, canvas.height);
-        for (let i = 0; i < pixels.data.length; i += 4) {
-          const l =
-            0.2126 * pixels.data[i] +
-            0.7152 * pixels.data[i + 1] +
-            0.0722 * pixels.data[i + 2];
-          pixels.data[i] =
-            pixels.data[i + 1] =
-            pixels.data[i + 2] =
-              l < 120 ? 0 : 255;
-        }
-        context.putImageData(pixels, 0, 0);
-        const working = await new Promise<Blob>((resolve, reject) =>
-          canvas.toBlob(
-            (b) => (b ? resolve(b) : reject(Error("Could not read photo"))),
-            "image/png",
-          ),
-        );
-        const enhanced = await worker.recognize(working);
-        if (
-          productTextCandidates(enhanced.data.text, enhanced.data.confidence)
-            .length
-        )
-          result = enhanced;
-      } finally {
-        image.close();
-      }
+    await worker.setParameters({ tessedit_pageseg_mode: PSM.SPARSE_TEXT });
+    const first = await worker.recognize(
+      area === "whole" ? blob : await workingImage(blob, area),
+    );
+    let best = interpretText(first.data.text, first.data.confidence);
+    const useful =
+      mode === "date"
+        ? best.dates.length || best.rules.length
+        : productTextCandidates(best.text, best.confidence).length;
+    if (!useful) {
+      if (mode === "date")
+        await worker.setParameters({
+          tessedit_char_whitelist: "0123456789-./ ",
+        });
+      const enhanced = await worker.recognize(
+        await workingImage(blob, area, mode === "date" ? 180 : 120),
+      );
+      const next = interpretText(enhanced.data.text, enhanced.data.confidence);
+      if (mode === "date") {
+        best = {
+          ...best,
+          text: [best.text, next.text].filter(Boolean).join("\n"),
+          dates: [...new Set([...best.dates, ...next.dates])],
+          confidence: Math.min(best.confidence, next.confidence),
+        };
+      } else if (productTextCandidates(next.text, next.confidence).length)
+        best = next;
     }
-    return interpretText(result.data.text, result.data.confidence);
+    return best;
   } finally {
     await worker.terminate();
   }

@@ -143,6 +143,9 @@ export function CropPhoto({
           <button disabled={busy} onClick={onCancel}>
             Cancel crop
           </button>
+          <button disabled={!ready || busy} onClick={() => onSave(blob)}>
+            Keep full photo
+          </button>
           <button
             className="primary"
             disabled={!ready || busy}
