@@ -331,8 +331,11 @@ test("mobile editor, keyboard-size viewport, crop and replacement survive reload
   expect(editorBox!.width).toBe(390);
   expect(editorBox!.height).toBe(440);
   const save = page.getByRole("button", { name: "Add item", exact: true });
-  await expect(save).toBeInViewport();
-  await expect(page.getByLabel("Package size",{exact:true})).toBeInViewport();
+  await expect(save).not.toBeVisible();
+  await expect(page.getByRole("button", { name: "Done typing" })).toBeVisible();
+  await expect(
+    page.getByLabel("Package size", { exact: true }),
+  ).toBeInViewport();
   expect(
     await page.evaluate(
       () => document.documentElement.scrollWidth <= innerWidth,

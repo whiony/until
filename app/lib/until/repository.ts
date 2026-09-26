@@ -1,3 +1,4 @@
+import { assertRealRecords } from "./demo";
 import { cloudPhoto } from "./image-metadata";
 import { openDB, type DBSchema } from "idb";
 import { emptyRecords, type Records, newId } from "./domain";
@@ -56,6 +57,7 @@ export async function mutate(
     ((await tx.objectStore("state").get(key)) as Records) || emptyRecords();
   try {
     fn(r);
+    assertRealRecords(r);
     r.revision++;
     await tx.objectStore("state").put(r, key);
     for (const [id, blob] of Object.entries(photos))
@@ -65,6 +67,7 @@ export async function mutate(
     try {
       tx.abort();
     } catch {}
+    await tx.done.catch(() => {});
     throw e;
   }
   announce();
@@ -240,6 +243,7 @@ async function runSync(): Promise<SyncState> {
         try {
           tx.abort();
         } catch {}
+        await tx.done.catch(() => {});
         if (e instanceof SyncConflict) return "pending";
         throw e;
       }

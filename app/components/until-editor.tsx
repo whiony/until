@@ -1,5 +1,5 @@
 "use client";
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import { ScanBarcode, Camera, Plus, ChevronDown } from "lucide-react";
 import {
   Dialog,
@@ -7,6 +7,8 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
+import { editorIssue, type FieldIssue } from "@/lib/until/editor-validation";
+import { ProductRecognition } from "./until-product-recognition";
 import { CropPhoto } from "./until-crop";
 import { Choice, Check, EditableChoice } from "./until-controls";
 import { Photo } from "./until-photo";
@@ -17,7 +19,6 @@ import {
   newId,
   stamp,
   validateItem,
-  deadline,
   today,
   type Item,
   type Product,
@@ -87,7 +88,45 @@ export function Editor({
     initialProduct?.updatedAt,
   );
   const [cropSource, setCropSource] = useState<Blob | null>(null);
-  const [defer, setDefer] = useState(!!item && !deadline(item).date);
+  const [issue, setIssue] = useState<FieldIssue | null>(null);
+  const formRef = useRef<HTMLFormElement>(null);
+  const invalid = (field: string) => ({
+    id: field,
+    name: `until-${field}`,
+    autoComplete: "off",
+    "aria-label": (
+      {
+        "product-name": "Product name *",
+        "item-quantity": "Quantity",
+        "printed-date": "Printed date",
+        "opened-date": "Opened date",
+        "purchase-date": "Purchase date",
+        "opening-duration": "Use within after opening",
+      } as Record<string, string>
+    )[field],
+    "aria-invalid": issue?.field === field || undefined,
+    "aria-describedby": issue?.field === field ? `${field}-error` : undefined,
+  });
+  const fieldError = (field: string) =>
+    issue?.field === field ? (
+      <span className="field-error" id={`${field}-error`} role="alert">
+        {issue.message}
+      </span>
+    ) : null;
+  function reveal(field: string) {
+    requestAnimationFrame(() => {
+      const element = formRef.current?.querySelector<HTMLElement>(`#${field}`);
+      if (!element) return;
+      let parent = element.parentElement;
+      while (parent) {
+        if (parent instanceof HTMLDetailsElement) parent.open = true;
+        parent = parent.parentElement;
+      }
+      element.focus({ preventScroll: true });
+      element.scrollIntoView({ block: "center" });
+    });
+  }
+
   const [photos, setPhotos] = useState<Record<string, Blob>>({});
   const [busy, setBusy] = useState(false);
   const [lookupBusy, setLookupBusy] = useState(false);
@@ -112,7 +151,7 @@ export function Editor({
     try {
       const result = await lookupProduct(code, records.products);
       setSuggestion(result);
-      if (!result) setInfo("No match found. Add a name and date below.");
+      if (!result) setInfo("No match found. Add a product name below.");
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -213,16 +252,13 @@ export function Editor({
     e.preventDefault();
     setError("");
     try {
-      if (!product.name.trim()) throw Error("Add a product name.");
+      const problem = editorIssue(product.name, group, ack);
+      setIssue(problem);
+      if (problem) {
+        reveal(problem.field);
+        return;
+      }
       validateItem(group);
-      if (!deadline(group).date && !defer)
-        throw Error(
-          "Add a printed date or an opened date with a duration, or choose “Add the date later”.",
-        );
-      if (warning && !ack)
-        throw Error(
-          "Confirm the printed date is earlier than the opening date.",
-        );
       setBusy(true);
       await onSave({
         product: { ...product, name: product.name.trim(), updatedAt: stamp() },
@@ -234,6 +270,7 @@ export function Editor({
       onClose();
     } catch (e) {
       setError((e as Error).message);
+      reveal("form-error");
     } finally {
       setBusy(false);
     }
@@ -249,13 +286,28 @@ export function Editor({
         <DialogTitle>
           {item ? "Edit item" : initialProduct ? "Add another" : "Add item"}
         </DialogTitle>
+        <button
+          type="button"
+          className="keyboard-done"
+          onClick={() => {
+            if (document.activeElement instanceof HTMLElement)
+              document.activeElement.blur();
+          }}
+        >
+          Done typing
+        </button>
         <DialogDescription>
           {item
-            ? "Update this group’s dates and details."
-            : "A name and a date. The rest is up to you."}
+            ? "Update this item’s dates and details."
+            : "Start with a name. Add a date whenever you have it."}
         </DialogDescription>
-        <form onSubmit={submit}>
+        <form ref={formRef} onSubmit={submit} noValidate autoComplete="off">
           <div className="editor-fields">
+            {error && (
+              <p id="form-error" tabIndex={-1} className="error" role="alert">
+                {error}
+              </p>
+            )}
             {!item && (
               <section className="scan-block">
                 <div className="inline">
@@ -270,6 +322,11 @@ export function Editor({
                 <div className="inline">
                   <input
                     aria-label="Barcode"
+                    name="until-product-barcode"
+                    type="text"
+                    autoComplete="off"
+                    autoCorrect="off"
+                    spellCheck={false}
                     inputMode="numeric"
                     placeholder="Enter barcode"
                     value={product.barcode}
@@ -311,6 +368,7 @@ export function Editor({
             <label className="field">
               <span>Product name *</span>
               <textarea
+                {...invalid("product-name")}
                 rows={2}
                 required
                 maxLength={200}
@@ -318,11 +376,13 @@ export function Editor({
                 placeholder="e.g. Greek yogurt"
                 onChange={(e) => p({ name: e.target.value })}
               />
+              {fieldError("product-name")}
             </label>
             <div className="form-grid">
               <label className="field">
                 <span>Printed date</span>
                 <input
+                  {...invalid("printed-date")}
                   aria-label="Printed date"
                   type="date"
                   min="1900-01-01"
@@ -330,6 +390,7 @@ export function Editor({
                   value={group.printedDate}
                   onChange={(e) => g({ printedDate: e.target.value })}
                 />
+                {fieldError("printed-date")}
               </label>
               <Choice
                 label="Date on the label"
@@ -338,22 +399,20 @@ export function Editor({
                 options={["unspecified", "best before", "use by"]}
               />
             </div>
-            <Check
-              label="Add the date later · keep in Needs a date"
-              checked={defer}
-              onChange={setDefer}
-            />
             <div className="form-grid">
               <label className="field">
                 <span>Quantity</span>
                 <input
+                  {...invalid("item-quantity")}
+                  inputMode="numeric"
                   type="number"
                   required
                   min={1}
                   max={9999}
-                  value={group.quantity}
+                  value={Number.isNaN(group.quantity) ? "" : group.quantity}
                   onChange={(e) => g({ quantity: e.target.valueAsNumber })}
                 />
+                {fieldError("item-quantity")}
               </label>
               <EditableChoice
                 label="Location"
@@ -376,6 +435,9 @@ export function Editor({
                 <span>Brand</span>
                 <input
                   maxLength={200}
+                  name="until-product-brand"
+                  autoComplete="off"
+                  autoCorrect="off"
                   value={product.brand}
                   onChange={(e) => p({ brand: e.target.value })}
                 />
@@ -394,9 +456,11 @@ export function Editor({
                 <input
                   type="date"
                   max={today()}
+                  {...invalid("opened-date")}
                   value={group.openedDate}
                   onChange={(e) => g({ openedDate: e.target.value })}
                 />
+                {fieldError("opened-date")}
               </label>
               <div className="form-grid">
                 <label className="field">
@@ -405,6 +469,8 @@ export function Editor({
                     type="number"
                     min={1}
                     max={3650}
+                    {...invalid("opening-duration")}
+                    inputMode="numeric"
                     placeholder="No rule"
                     value={group.rule?.amount || ""}
                     onChange={(e) =>
@@ -418,6 +484,7 @@ export function Editor({
                       })
                     }
                   />
+                  {fieldError("opening-duration")}
                 </label>
                 <Choice
                   label="Duration unit"
@@ -469,6 +536,21 @@ export function Editor({
                       blob={photos[product.photoId]}
                       category={product.category}
                       name={product.name}
+                    />
+                  )}
+                  {product.photoId && (
+                    <ProductRecognition
+                      key={product.photoId}
+                      getBlob={async () =>
+                        photos[product.photoId!] ||
+                        (await getPhoto(product.photoId!))
+                      }
+                      onApply={(name) => {
+                        p({ name });
+                        setInfo(
+                          "Product name applied. You can edit it before saving.",
+                        );
+                      }}
                     />
                   )}
                   {product.photoId && (
@@ -618,9 +700,11 @@ export function Editor({
                   <input
                     type="date"
                     max={today()}
+                    {...invalid("purchase-date")}
                     value={group.purchaseDate}
                     onChange={(e) => g({ purchaseDate: e.target.value })}
                   />
+                  {fieldError("purchase-date")}
                 </label>
                 <label className="field">
                   <span>Package size</span>
@@ -647,18 +731,21 @@ export function Editor({
                   The printed deadline is earlier than the opening date. It will
                   still control the countdown.
                 </p>
-                <Check
-                  label="I checked these dates"
-                  checked={ack}
-                  onChange={setAck}
-                />
+                <div
+                  id="date-confirmation"
+                  tabIndex={-1}
+                  aria-describedby="date-confirmation-error"
+                >
+                  {fieldError("date-confirmation")}
+                  <Check
+                    label="I checked these dates"
+                    checked={ack}
+                    onChange={setAck}
+                  />
+                </div>
               </div>
             )}
-            {error && (
-              <p className="error" role="alert">
-                {error}
-              </p>
-            )}
+
             {info && (
               <p role="status" className="notice">
                 {info}

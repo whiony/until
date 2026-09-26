@@ -1182,16 +1182,16 @@ input[type="time"] {
   height: 49px !important;
   flex: 0 0 auto !important;
 }
-/* Compact account-sync edition */
+/* Compact layout, with Until's original warm palette. */
 :root {
-  --background: #f5f7f3;
-  --foreground: #203b35;
-  --primary: #214d43;
-  --muted: #edf1e9;
-  --muted-foreground: #596a61;
-  --border: #dce3da;
-  --accent: #e8f0d4;
-  --ring: #557665;
+  --background: #f6f5ef;
+  --foreground: #253831;
+  --primary: #294d3b;
+  --muted: #efeee7;
+  --muted-foreground: #626c62;
+  --border: #dedfd3;
+  --accent: #e3ebc5;
+  --ring: #688a44;
 }
 body {
   font-family:
@@ -1756,5 +1756,133 @@ h2 {
   }
   .crop-preview {
     max-height: 30dvh;
+  }
+}
+
+/* Focus and examples */
+.filter-row .icon-button {
+  margin-left: 0;
+}
+.demo-banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+  padding: 14px 16px;
+  margin-bottom: 24px;
+  background: #e3ebc5;
+  border: 1px solid #b3c384;
+  border-radius: 12px;
+  font-size: 14px;
+}
+.demo-banner span {
+  flex: 1;
+  min-width: 200px;
+}
+.demo-tag {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 700;
+  background: #e3ebc5;
+  padding: 2px 7px;
+  border-radius: 5px;
+  margin: 4px 0;
+}
+.heads-up {
+  display: flex;
+  gap: 12px 28px;
+  flex-wrap: wrap;
+  padding: 12px 16px;
+  background: #edeedc;
+  border-radius: 10px;
+  margin: -4px 0 24px;
+  font-size: 14px;
+}
+.heads-up small {
+  font-size: 12px;
+}
+.heads-up strong {
+  font-size: 18px;
+  margin-right: 4px;
+}
+.empty-sun {
+  color: #6c813e;
+}
+[data-slot="empty"] {
+  background: #f1f2e5;
+  border-color: #d9dfc1;
+}
+.field-error {
+  color: #a6382e;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.4;
+}
+[aria-invalid="true"] {
+  border-color: #a6382e !important;
+}
+.product-recognition {
+  margin: 12px 0;
+  padding: 12px;
+  background: #f1f2e5;
+  border-radius: 10px;
+}
+.product-recognition small {
+  display: block;
+  margin-top: 10px;
+}
+.product-recognition pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: 13px;
+  max-height: 150px;
+  overflow: auto;
+}
+.keyboard-done {
+  display: none;
+}
+@media (max-width: 760px) {
+  .top-actions {
+    display: flex;
+  }
+  .top-actions > button {
+    font-size: 12px;
+    min-height: 38px;
+    padding: 8px 12px;
+  }
+  .heads-up {
+    display: none;
+  }
+  .keyboard-open .editor .form-footer {
+    display: none;
+  }
+  .keyboard-open .editor [data-slot="dialog-description"] {
+    display: none;
+  }
+  .keyboard-open .editor.modal {
+    padding-top: 12px !important;
+  }
+  .keyboard-open .editor [data-slot="dialog-title"] {
+    margin-bottom: 12px;
+  }
+  .keyboard-open .editor .keyboard-done {
+    display: block;
+    position: absolute;
+    right: 60px;
+    top: 6px;
+    padding: 8px 10px;
+    min-height: 40px;
+    font-size: 13px;
+  }
+  .keyboard-open .editor [data-slot="dialog-close"] {
+    top: 6px;
+  }
+  .editor-fields {
+    scroll-padding: 16px;
+    overscroll-behavior: contain;
+  }
+  .editor input,
+  .editor textarea {
+    scroll-margin: 16px;
   }
 }

@@ -1,8 +1,10 @@
 "use client";
+import { demoRecords, itemCount, units } from "@/lib/until/demo";
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import {
   Plus,
+  Sun,
   Clock3,
   Grid2X2,
   History,
@@ -58,11 +60,13 @@ import { notificationService } from "@/lib/until/notifications";
 type View = "soon" | "all" | "history" | "settings";
 export default function UntilApp() {
   useVisualViewport();
-  const [records, setRecords] = useState<Records>(emptyRecords);
+  const [realRecords, setRecords] = useState<Records>(emptyRecords);
   const [ready, setReady] = useState(false);
   const [loadError, setLoadError] = useState("");
   const [view, setView] = useState<View>("soon");
   const [now, setNow] = useState(today);
+  const [demo, setDemo] = useState(false);
+  const records = demo ? demoRecords(now) : realRecords;
   const [sync, setSync] = useState<SyncState>("pending");
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("any");
@@ -70,12 +74,32 @@ export default function UntilApp() {
   const [status, setStatus] = useState("active");
   const [sort, setSort] = useState("soonest");
   const [list, setList] = useState(false);
-  const [editor, setEditor] = useState<{
+  const [editor, setEditorState] = useState<{
     item?: Item;
     product?: Product;
   } | null>(null);
   const [detail, setDetail] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  function setEditor(value: typeof editor) {
+    if (value && demo) {
+      toast.info(
+        "Demo examples are read-only. Exit demo to add your own items.",
+      );
+      return;
+    }
+    setEditorState(value);
+  }
+  function toggleDemo() {
+    setDemo((v) => !v);
+    setDetail(null);
+    setEditorState(null);
+    setSearch("");
+    setLocation("any");
+    setCategory("any");
+    setStatus("active");
+    setView("soon");
+  }
+
   const refresh = useCallback(async () => {
     try {
       setRecords(await readRecords());
@@ -131,6 +155,10 @@ export default function UntilApp() {
     fn: (r: Records) => void,
     photos: Record<string, Blob> = {},
   ) {
+    if (demo)
+      throw Error(
+        "Demo examples are read-only. Exit demo to change your items.",
+      );
     setRecords(await mutate(fn, photos));
     setSync("pending");
     void synchronize();
@@ -227,6 +255,7 @@ export default function UntilApp() {
                     {p.category} <span>· {i.location || "No location"}</span>
                   </div>
                   <h3>{p.name}</h3>
+                  {demo && <span className="demo-tag">Demo</span>}
                   <p className="muted">
                     {[p.brand, p.size].filter(Boolean).join(" · ") ||
                       `${i.quantity} ${i.quantity === 1 ? "unit" : "units"} on your shelf`}
@@ -252,7 +281,7 @@ export default function UntilApp() {
                 </span>
                 {i.status === "active" ? (
                   <button
-                    disabled={busy}
+                    disabled={busy || demo}
                     onClick={() =>
                       action(
                         (r) => completeUnit(r, i.id, "used"),
@@ -274,6 +303,21 @@ export default function UntilApp() {
       </div>
     );
   }
+  const shown = order(
+    records.items.filter((i) =>
+      view === "history"
+        ? i.status !== "active"
+        : status === "opened"
+          ? i.status === "active" && !!i.openedDate
+          : status === "unopened"
+            ? i.status === "active" && !i.openedDate
+            : status === "needs a date"
+              ? i.status === "active" && !deadline(i).date
+              : i.status === status,
+    ),
+  );
+  const filtered = !!search || category !== "any" || location !== "any";
+  const attention = order([...expired, ...soon, ...undated]);
   const selected = records.items.find((i) => i.id === detail);
   const selectedProduct = selected && products.get(selected.productId);
   return (
@@ -294,10 +338,13 @@ export default function UntilApp() {
             <span className="brand-period">.</span>
           </Link>
           <div className="top-actions">
+            <button onClick={toggleDemo} aria-pressed={demo}>
+              {demo ? "Exit demo" : "Try demo"}
+            </button>
             <button
               className="primary desktop-add"
               onClick={() => setEditor({})}
-              disabled={!ready}
+              disabled={!ready || demo}
             >
               <Plus /> Add item
             </button>
@@ -319,7 +366,7 @@ export default function UntilApp() {
             >
               <TabsList className="nav-list">
                 <TabsTrigger value="soon">
-                  <Clock3 /> Soon <span>{soon.length}</span>
+                  <Clock3 /> Soon <span>{units(soon)}</span>
                 </TabsTrigger>
                 <TabsTrigger value="all">
                   <Grid2X2 /> All items{" "}
@@ -335,6 +382,16 @@ export default function UntilApp() {
             </Tabs>
           </aside>
           <main>
+            {demo && (
+              <div className="demo-banner" role="status">
+                <strong>Demo mode · read-only</strong>
+                <span>
+                  Fictional examples. Never synced or exported. Your actual
+                  items are unchanged.
+                </span>
+                <button onClick={toggleDemo}>Back to my items</button>
+              </div>
+            )}
             {loadError ? (
               <div role="alert" className="error">
                 {loadError}
@@ -344,7 +401,7 @@ export default function UntilApp() {
               <p role="status">Opening your shelf…</p>
             ) : view === "settings" ? (
               <Settings
-                records={records}
+                records={realRecords}
                 onChange={change}
                 sync={sync}
                 retry={synchronize}
@@ -388,7 +445,7 @@ export default function UntilApp() {
                       {view === "soon"
                         ? `What’s coming up in the next ${records.settings.soonDays} days.`
                         : view === "all"
-                          ? `${active.reduce((sum, i) => sum + i.quantity, 0)} active items`
+                          ? `${itemCount(shown)} shown · quantities included`
                           : "Used and discarded items"}
                     </p>
                   </div>
@@ -473,6 +530,19 @@ export default function UntilApp() {
                     </button>
                   </div>
                 </div>
+                {view === "soon" && (
+                  <div className="heads-up" aria-label="Shelf summary">
+                    <span>
+                      <strong>{units(attention)}</strong> need attention{" "}
+                      <small>(expired, upcoming or undated)</small>
+                    </span>
+                    <span>
+                      <strong>{units(order(active))}</strong> active{" "}
+                      {units(order(active)) === 1 ? "item" : "items"}
+                      {filtered ? " matching filters" : ""}
+                    </span>
+                  </div>
+                )}
                 {view === "soon" ? (
                   <>
                     <div className="section-heading">
@@ -485,13 +555,17 @@ export default function UntilApp() {
                       cards(soon)
                     ) : (
                       <Empty>
-                        <PackageOpen size={30} />
+                        <Sun className="empty-sun" size={30} />
                         <EmptyTitle>
-                          {active.length ? "No upcoming dates" : "No items yet"}
+                          {!records.items.length
+                            ? "No items yet"
+                            : filtered && soon.length
+                              ? "No matching items"
+                              : "Nothing expiring soon"}
                         </EmptyTitle>
                         <EmptyDescription>
                           {active.length
-                            ? "Nothing matches in the upcoming window. Try other filters or check All items."
+                            ? "No items match this upcoming window. Check All items or adjust your filters."
                             : "Add an item to track its expiration date."}
                         </EmptyDescription>
                         <button
@@ -507,7 +581,7 @@ export default function UntilApp() {
                         <div className="section-heading">
                           <h2>Past the recorded date</h2>
                           <span className="pill">
-                            {order(expired).length} GROUPS
+                            {itemCount(order(expired))}
                           </span>
                         </div>
                         <p className="muted">
@@ -535,25 +609,7 @@ export default function UntilApp() {
                       <h2>
                         {view === "history" ? "Your history" : "Your shelf"}
                       </h2>
-                      <span>
-                        {
-                          order(
-                            records.items.filter((i) =>
-                              view === "history"
-                                ? i.status !== "active"
-                                : status === "opened"
-                                  ? i.status === "active" && !!i.openedDate
-                                  : status === "unopened"
-                                    ? i.status === "active" && !i.openedDate
-                                    : status === "needs a date"
-                                      ? i.status === "active" &&
-                                        !deadline(i).date
-                                      : i.status === status,
-                            ),
-                          ).length
-                        }{" "}
-                        groups
-                      </span>
+                      <span>{itemCount(shown)} · quantities included</span>
                     </div>
                     {(() => {
                       const items = records.items.filter((i) =>
@@ -571,26 +627,36 @@ export default function UntilApp() {
                         cards(items)
                       ) : (
                         <Empty>
-                          <PackageOpen size={36} />
+                          <Sun className="empty-sun" size={30} />
                           <EmptyTitle>
                             {view === "history"
                               ? "No history yet"
-                              : "No matching items"}
+                              : !records.items.length
+                                ? "No items yet"
+                                : "No matching items"}
                           </EmptyTitle>
                           <EmptyDescription>
                             {view === "history"
                               ? "Used and discarded items will appear here, ready to add again."
-                              : "Try clearing your filters, or add something to your shelf."}
+                              : !records.items.length
+                                ? "Add an item to start tracking its date."
+                                : "Try clearing your filters."}
                           </EmptyDescription>
                           <button
                             onClick={() => {
+                              if (!records.items.length && view !== "history") {
+                                setEditor({});
+                                return;
+                              }
                               setSearch("");
                               setCategory("any");
                               setLocation("any");
                               setStatus("active");
                             }}
                           >
-                            Clear filters
+                            {!records.items.length && view !== "history"
+                              ? "Add an item"
+                              : "Clear filters"}
                           </button>
                         </Empty>
                       );
@@ -618,7 +684,7 @@ export default function UntilApp() {
           </button>
           <button
             className="mobile-plus"
-            disabled={!ready}
+            disabled={!ready || demo}
             onClick={() => setEditor({})}
           >
             <Plus />
@@ -651,7 +717,10 @@ export default function UntilApp() {
       {selected && selectedProduct && !editor && (
         <Dialog open onOpenChange={(v) => !v && setDetail(null)}>
           <DialogContent className="modal detail">
-            <DialogTitle>{selectedProduct.name}</DialogTitle>
+            <DialogTitle>
+              {selectedProduct.name}
+              {demo ? " · Demo" : ""}
+            </DialogTitle>
             <DialogDescription>
               {selectedProduct.brand} · {selectedProduct.category} ·{" "}
               {selected.location}
@@ -755,12 +824,12 @@ export default function UntilApp() {
                 Facts data: ODbL; images: CC BY-SA.
               </p>
             )}
-            <div className="detail-actions">
+            <fieldset className="detail-actions" disabled={demo}>
               {selected.status === "active" && (
                 <>
                   <button
                     className="primary"
-                    disabled={busy}
+                    disabled={busy || demo}
                     onClick={() =>
                       action(
                         (r) => completeUnit(r, selected.id, "used"),
@@ -772,7 +841,7 @@ export default function UntilApp() {
                   </button>
                   {!selected.openedDate && (
                     <button
-                      disabled={busy}
+                      disabled={busy || demo}
                       onClick={() =>
                         action(
                           (r) => openUnit(r, selected.id),
@@ -784,7 +853,7 @@ export default function UntilApp() {
                     </button>
                   )}
                   <button
-                    disabled={busy}
+                    disabled={busy || demo}
                     onClick={() =>
                       action(
                         (r) => completeUnit(r, selected.id, "discarded"),
@@ -806,7 +875,7 @@ export default function UntilApp() {
               >
                 Edit details
               </button>
-            </div>
+            </fieldset>
           </DialogContent>
         </Dialog>
       )}

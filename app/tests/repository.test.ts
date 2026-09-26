@@ -43,3 +43,12 @@ it("retains data when account authentication is unavailable", async () => {
   expect(await readRecords()).toEqual(before);
   vi.unstubAllGlobals();
 });
+
+it("rejects a demo snapshot atomically without changing existing real records", async () => {
+  const { demoRecords } = await import("../lib/until/demo");
+  const before = await readRecords();
+  await expect(mutate((r) => Object.assign(r, demoRecords()))).rejects.toThrow(
+    "Demo records",
+  );
+  expect(await readRecords()).toEqual(before);
+});

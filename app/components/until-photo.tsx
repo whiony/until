@@ -26,6 +26,10 @@ export function Photo({
     let active = true;
     let objectUrl = "";
     const load = async () => {
+      if (id === "demo:yogurt") {
+        setUrl("/demo/yogurt.png");
+        return;
+      }
       const b = blob || (id ? await getPhoto(id) : undefined);
       if (b && active) {
         if (objectUrl) URL.revokeObjectURL(objectUrl);

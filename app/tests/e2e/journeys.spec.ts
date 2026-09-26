@@ -69,7 +69,6 @@ test("real item lifecycle, reload, mobile layout and manual barcode fallback", a
   await page.getByRole("button", { name: "Look up", exact: true }).click();
   await expect(page.getByRole("alert")).toContainText("barcode");
   await page.getByLabel("Product name *").fill("Hand cream");
-  await page.getByText("Add the date later · keep in Needs a date").click();
   await page
     .getByRole("button", { name: "Add item", exact: true })
     .last()

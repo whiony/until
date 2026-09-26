@@ -173,8 +173,8 @@ export function countdown(i: Item, now = today()) {
     i.dateKind === "best before" && deadline(i).controls === "printed date";
   return n < 0
     ? best
-      ? `Best before was ${-n} days ago`
-      : `Expired ${-n} days ago`
+      ? `Best before was ${-n} ${n === -1 ? "day" : "days"} ago`
+      : `Expired ${-n} ${n === -1 ? "day" : "days"} ago`
     : n === 0
       ? best
         ? "Best before today"

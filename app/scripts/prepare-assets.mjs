@@ -32,3 +32,15 @@ await fs.copyFile(
   "node_modules/tesseract.js-core/LICENSE",
   "public/ocr/LICENSE-core.txt",
 );
+
+// Versioned URLs bypass previously cached Home Screen assets. Root aliases support iOS fallback discovery.
+for (const name of ["apple-touch-icon", "icon-192", "icon-512"])
+  await fs.copyFile(`public/icons/${name}.png`, `public/icons/${name}-v3.png`);
+await fs.copyFile(
+  "public/icons/apple-touch-icon.png",
+  "public/apple-touch-icon.png",
+);
+await fs.copyFile(
+  "public/icons/apple-touch-icon.png",
+  "public/apple-touch-icon-precomposed.png",
+);
