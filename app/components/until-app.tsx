@@ -40,6 +40,8 @@ import {
   today,
   deadline,
   displayDate,
+  historyDate,
+  recentHistory,
   daysLeft,
   countdown,
   urgency,
@@ -74,6 +76,8 @@ export default function UntilApp() {
   const [location, setLocation] = useState("any");
   const [status, setStatus] = useState("active");
   const [sort, setSort] = useState("soonest");
+  const [historySort, setHistorySort] = useState("recent");
+  const currentSort = view === "history" ? historySort : sort;
   const [list, setList] = useState(false);
   const [editor, setEditorState] = useState<{
     item?: Item;
@@ -223,17 +227,19 @@ export default function UntilApp() {
     items
       .filter(match)
       .sort((a, b) =>
-        sort === "name"
-          ? products
-              .get(a.productId)!
-              .name.localeCompare(products.get(b.productId)!.name)
-          : sort === "added"
-            ? b.createdAt.localeCompare(a.createdAt)
-            : sort === "opened"
-              ? b.openedDate.localeCompare(a.openedDate)
-              : (deadline(a).date || "9999").localeCompare(
-                  deadline(b).date || "9999",
-                ),
+        currentSort === "recent"
+          ? recentHistory(a, b)
+          : currentSort === "name"
+            ? products
+                .get(a.productId)!
+                .name.localeCompare(products.get(b.productId)!.name)
+            : currentSort === "added"
+              ? b.createdAt.localeCompare(a.createdAt)
+              : currentSort === "opened"
+                ? b.openedDate.localeCompare(a.openedDate)
+                : (deadline(a).date || "9999").localeCompare(
+                    deadline(b).date || "9999",
+                  ),
       );
   function cards(items: Item[]) {
     return (
@@ -242,7 +248,7 @@ export default function UntilApp() {
           const p = products.get(i.productId)!;
           return (
             <article
-              className={`item-card ${urgency(i, records.settings.soonDays, now)}`}
+              className={`item-card ${i.status === "active" ? urgency(i, records.settings.soonDays, now) : `historical ${i.status}`}`}
               key={i.id}
             >
               <button
@@ -253,17 +259,33 @@ export default function UntilApp() {
                 <Photo id={p.photoId} category={p.category} name={p.name} />
                 <div className="card-copy">
                   <div className="eyebrow">
-                    {p.category} <span>· {i.location || "No location"}</span>
+                    {[p.category, i.location].filter(Boolean).join(" · ") ||
+                      "Unclassified"}
                   </div>
                   <h3>{p.name}</h3>
                   {demo && <span className="demo-tag">Demo</span>}
-                  <p className="muted">
-                    {[p.brand, p.size].filter(Boolean).join(" · ") ||
-                      `${i.quantity} ${i.quantity === 1 ? "unit" : "units"}${i.status === "active" ? " on your shelf" : ` ${i.status}`}`}
+                  {[p.brand, p.size].filter(Boolean).length > 0 && (
+                    <p className="muted">
+                      {[p.brand, p.size].filter(Boolean).join(" · ")}
+                    </p>
+                  )}
+                  <p className="list-quantity muted">
+                    {i.quantity} {i.quantity === 1 ? "unit" : "units"} ·{" "}
+                    {i.status === "active"
+                      ? i.openedDate
+                        ? "opened"
+                        : "unopened"
+                      : i.status}
                   </p>
                 </div>
                 <div className="countdown">
-                  <Clock3 size={17} />
+                  {i.status === "active" ? (
+                    <Clock3 size={17} />
+                  ) : i.status === "used" ? (
+                    <Check size={17} />
+                  ) : (
+                    <Trash2 size={17} />
+                  )}
                   <span>
                     {i.status === "active"
                       ? countdown(i, now)
@@ -272,17 +294,19 @@ export default function UntilApp() {
                         : "Discarded"}
                   </span>
                 </div>
-                <p className="date-caption">
-                  {i.status === "active"
-                    ? displayDate(deadline(i).date) ||
-                      "Add a date when you have it"
-                    : `Recorded as ${i.status}`}
-                  {i.status === "active" && i.openedDate ? " · opened" : ""}
-                </p>
+                {(i.status === "active" || i.completedAt) && (
+                  <p className="date-caption">
+                    {i.status === "active"
+                      ? displayDate(deadline(i).date) ||
+                        "Add a date when you have it"
+                      : historyDate(i)}
+                    {i.status === "active" && i.openedDate ? " · opened" : ""}
+                  </p>
+                )}
                 <ArrowUpRight className="card-arrow" size={19} />
               </button>
               <div className="card-bottom">
-                <span>
+                <span className="footer-quantity">
                   ×{i.quantity}{" "}
                   {i.status === "active"
                     ? i.openedDate
@@ -292,7 +316,7 @@ export default function UntilApp() {
                 </span>
                 {i.status === "active" ? (
                   <button
-                    disabled={busy || demo}
+                    disabled={busy || demo || i.quantity < 1}
                     onClick={() =>
                       action(
                         (r) => completeUnit(r, i.id, "used"),
@@ -300,10 +324,13 @@ export default function UntilApp() {
                       )
                     }
                   >
-                    <Check size={16} /> Used one
+                    <Check size={16} /> Mark one as used
                   </button>
                 ) : (
-                  <button onClick={() => setEditor({ product: p })}>
+                  <button
+                    disabled={demo}
+                    onClick={() => setEditor({ product: p })}
+                  >
                     <Plus size={16} /> Add again
                   </button>
                 )}
@@ -372,11 +399,16 @@ export default function UntilApp() {
             >
               <TabsList className="nav-list">
                 <TabsTrigger value="soon">
-                  <Clock3 /> Soon <span>{units(soon)}</span>
+                  <Clock3 /> Soon{" "}
+                  <span aria-label={`${units(soon)} upcoming units`}>
+                    {units(soon)}
+                  </span>
                 </TabsTrigger>
                 <TabsTrigger value="all">
                   <Grid2X2 /> All items{" "}
-                  <span>{active.reduce((n, i) => n + i.quantity, 0)}</span>
+                  <span aria-label={`${units(active)} active units`}>
+                    {units(active)}
+                  </span>
                 </TabsTrigger>
                 <TabsTrigger value="history">
                   <History /> History
@@ -451,7 +483,7 @@ export default function UntilApp() {
                       {view === "soon"
                         ? `What’s coming up in the next ${records.settings.soonDays} days.`
                         : view === "all"
-                          ? `${itemCount(shown)} shown · quantities included`
+                          ? "Your everyday shelf"
                           : "Used and discarded items"}
                     </p>
                   </div>
@@ -461,7 +493,11 @@ export default function UntilApp() {
                     <Search size={19} />
                     <input
                       aria-label="Search items"
-                      placeholder="Find something on your shelf…"
+                      placeholder={
+                        view === "history"
+                          ? "Search used and discarded items…"
+                          : "Find something on your shelf…"
+                      }
                       value={search}
                       onChange={(e) => setSearch(e.target.value)}
                     />
@@ -518,14 +554,22 @@ export default function UntilApp() {
                     )}
                     <Choice
                       label="Sort Items"
-                      value={sort}
-                      onChange={setSort}
-                      options={[
-                        { value: "soonest", label: "Soonest First" },
-                        { value: "added", label: "Recently Added" },
-                        { value: "opened", label: "Recently Opened" },
-                        { value: "name", label: "Name A–Z" },
-                      ]}
+                      value={currentSort}
+                      onChange={view === "history" ? setHistorySort : setSort}
+                      options={
+                        view === "history"
+                          ? [
+                              { value: "recent", label: "Most Recent" },
+                              { value: "added", label: "Recently Added" },
+                              { value: "name", label: "Name A–Z" },
+                            ]
+                          : [
+                              { value: "soonest", label: "Soonest First" },
+                              { value: "added", label: "Recently Added" },
+                              { value: "opened", label: "Recently Opened" },
+                              { value: "name", label: "Name A–Z" },
+                            ]
+                      }
                     />
                     <button
                       className="view-toggle"
@@ -541,12 +585,12 @@ export default function UntilApp() {
                 {view === "soon" && (
                   <div className="heads-up" aria-label="Shelf summary">
                     <span>
-                      <strong>{units(attention)}</strong> need attention{" "}
+                      <strong>{units(attention)}</strong> units need attention{" "}
                       <small>(expired, upcoming or undated)</small>
                     </span>
                     <span>
                       <strong>{units(order(active))}</strong> active{" "}
-                      {units(order(active)) === 1 ? "item" : "items"}
+                      {units(order(active)) === 1 ? "unit" : "units"}
                       {filtered ? " matching filters" : ""}
                     </span>
                   </div>
@@ -555,9 +599,7 @@ export default function UntilApp() {
                   <>
                     <div className="section-heading">
                       <h2>Next to expire</h2>
-                      <span className="pill">
-                        NEXT {records.settings.soonDays} DAYS
-                      </span>
+                      <span>{itemCount(order(soon))}</span>
                     </div>
                     {order(soon).length ? (
                       cards(soon)
@@ -576,12 +618,25 @@ export default function UntilApp() {
                             ? "No items match this upcoming window. Check All items or adjust your filters."
                             : "Add an item to track its expiration date."}
                         </EmptyDescription>
-                        <button
-                          className="primary"
-                          onClick={() => setEditor({})}
-                        >
-                          <Plus size={18} /> Add an item
-                        </button>
+                        {filtered && soon.length > 0 ? (
+                          <button
+                            onClick={() => {
+                              setSearch("");
+                              setCategory("any");
+                              setLocation("any");
+                            }}
+                          >
+                            Clear filters
+                          </button>
+                        ) : !active.length && !filtered ? (
+                          <button
+                            className="primary"
+                            disabled={demo}
+                            onClick={() => setEditor({})}
+                          >
+                            <Plus size={18} /> Add an item
+                          </button>
+                        ) : null}
                       </Empty>
                     )}
                     {order(expired).length > 0 && (
@@ -601,9 +656,10 @@ export default function UntilApp() {
                     )}
                     {order(undated).length > 0 && (
                       <section className="undated-section">
-                        <h2>
-                          Needs a date <span>{order(undated).length}</span>
-                        </h2>
+                        <div className="section-heading">
+                          <h2>Needs a date</h2>
+                          <span>{itemCount(order(undated))}</span>
+                        </div>
                         <p className="muted">
                           A small reminder to check the label.
                         </p>
@@ -617,7 +673,7 @@ export default function UntilApp() {
                       <h2>
                         {view === "history" ? "Your history" : "Your shelf"}
                       </h2>
-                      <span>{itemCount(shown)} · quantities included</span>
+                      <span>{itemCount(shown)}</span>
                     </div>
                     {(() => {
                       const items = records.items.filter((i) =>
@@ -631,6 +687,13 @@ export default function UntilApp() {
                                 ? i.status === "active" && !deadline(i).date
                                 : i.status === status,
                       );
+                      const emptyShelf =
+                        view === "all" && status === "active" && !active.length;
+                      const canClear =
+                        (filtered && items.length > 0) ||
+                        (view === "all" &&
+                          status !== "active" &&
+                          active.length > 0);
                       return order(items).length ? (
                         cards(items)
                       ) : (
@@ -638,48 +701,46 @@ export default function UntilApp() {
                           <Sun className="empty-sun" size={30} />
                           <EmptyTitle>
                             {view === "history"
-                              ? filtered
+                              ? filtered && items.length > 0
                                 ? "No matching items"
                                 : "No history yet"
-                              : !active.length &&
-                                  status === "active" &&
-                                  !filtered
+                              : emptyShelf
                                 ? "No items yet"
                                 : "No matching items"}
                           </EmptyTitle>
                           <EmptyDescription>
                             {view === "history"
                               ? "Used and discarded items will appear here, ready to add again."
-                              : !active.length &&
-                                  status === "active" &&
-                                  !filtered
+                              : emptyShelf
                                 ? "Add an item to start tracking its date."
                                 : "Try clearing your filters."}
                           </EmptyDescription>
-                          <button
-                            onClick={() => {
-                              if (
-                                !active.length &&
-                                status === "active" &&
-                                !filtered &&
-                                view !== "history"
-                              ) {
-                                setEditor({});
-                                return;
-                              }
-                              setSearch("");
-                              setCategory("any");
-                              setLocation("any");
-                              setStatus("active");
-                            }}
-                          >
-                            {!active.length &&
-                            status === "active" &&
-                            !filtered &&
-                            view !== "history"
-                              ? "Add an item"
-                              : "Clear filters"}
-                          </button>
+                          {(canClear || (emptyShelf && !filtered)) && (
+                            <button
+                              onClick={() => {
+                                if (
+                                  !active.length &&
+                                  status === "active" &&
+                                  !filtered &&
+                                  view !== "history"
+                                ) {
+                                  setEditor({});
+                                  return;
+                                }
+                                setSearch("");
+                                setCategory("any");
+                                setLocation("any");
+                                setStatus("active");
+                              }}
+                            >
+                              {!active.length &&
+                              status === "active" &&
+                              !filtered &&
+                              view !== "history"
+                                ? "Add an item"
+                                : "Clear filters"}
+                            </button>
+                          )}
                         </Empty>
                       );
                     })()}
@@ -706,11 +767,12 @@ export default function UntilApp() {
           </button>
           <button
             className="mobile-plus"
+            aria-label="Add item"
+            title={demo ? "Exit demo to add items" : "Add item"}
             disabled={!ready || demo}
             onClick={() => setEditor({})}
           >
             <Plus />
-            <span>Add</span>
           </button>
           <button
             aria-current={view === "history" ? "page" : undefined}

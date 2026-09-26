@@ -59,7 +59,7 @@ test("aligned grid, compact list, invariant mobile cards and expired details", a
   await page.getByRole("button", { name: "Show list", exact: true }).click();
   await expect(page.locator(".cards.as-list").first()).toHaveCSS(
     "max-width",
-    "1120px",
+    "none",
   );
   await page.screenshot({
     path: "test-results/display-list.png",
@@ -134,7 +134,7 @@ test("field help clears controls and optional sections remain usable", async ({
     await page.goto("/");
     await page
       .getByRole("button", {
-        name: width > 760 ? "Add item" : "Add",
+        name: width > 760 ? "Add item" : "Add item",
         exact: true,
       })
       .first()

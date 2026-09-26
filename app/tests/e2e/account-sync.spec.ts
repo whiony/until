@@ -26,7 +26,7 @@ async function all(page: Page) {
 async function add(page: Page, name: string) {
   const mobile = page.viewportSize()!.width < 760;
   await page
-    .getByRole("button", { name: mobile ? "Add" : "Add item", exact: true })
+    .getByRole("button", { name: mobile ? "Add item" : "Add item", exact: true })
     .click();
   await page.getByLabel("Product name *").fill(name);
   await setDate(page, "Printed date", "2029-04-15");
@@ -322,7 +322,7 @@ test("mobile editor, keyboard-size viewport, crop and replacement survive reload
   const context = await session(browser, crypto.randomUUID(), true);
   const page = await context.newPage();
   await page.goto("/");
-  await page.getByRole("button", { name: "Add", exact: true }).click();
+  await page.getByRole("button", { name: "Add item", exact: true }).click();
   await page
     .getByLabel("Product name *")
     .fill("Haruharu wonder Black Rice Bakuchiol Eye Cream 20ml");

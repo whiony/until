@@ -50,6 +50,7 @@ const item = z.object({
     .object({ text: z.string().max(30000), confirmedAt: ts })
     .optional(),
   status: z.enum(["active", "used", "discarded"]),
+  completedAt: ts.optional(),
   createdAt: ts,
   updatedAt: ts,
   schemaVersion: z.literal(1),

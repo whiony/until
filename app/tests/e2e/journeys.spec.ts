@@ -49,7 +49,7 @@ test("real item lifecycle, reload, mobile layout and manual barcode fallback", a
     page.getByRole("button", { name: "View Greek yogurt" }),
   ).toHaveCount(2);
   await page
-    .getByRole("button", { name: "Used one", exact: true })
+    .getByRole("button", { name: "Mark one as used", exact: true })
     .first()
     .click();
   await page.getByRole("tab", { name: "History" }).click();

@@ -33,6 +33,8 @@ export type Item = {
   packagingPhotoId?: string;
   recognition?: { text: string; confirmedAt: string };
   status: "active" | "used" | "discarded";
+  // Present only when a use/discard action was actually recorded.
+  completedAt?: string;
   createdAt: string;
   updatedAt: string;
   schemaVersion: 1;
@@ -210,9 +212,11 @@ export function completeUnit(
   const i = r.items.find((x) => x.id === id);
   if (!i || i.status !== "active")
     throw Error("This item is no longer active.");
+  const completedAt = stamp();
   if (all || i.quantity === 1) {
     i.status = status;
-    i.updatedAt = stamp();
+    i.completedAt = completedAt;
+    i.updatedAt = completedAt;
   } else {
     i.quantity--;
     i.updatedAt = stamp();
@@ -221,7 +225,8 @@ export function completeUnit(
       id: newId(),
       quantity: 1,
       status,
-      updatedAt: stamp(),
+      completedAt,
+      updatedAt: completedAt,
     });
   }
 }
@@ -266,4 +271,17 @@ export function displayDate(value: string) {
     "Dec",
   ];
   return `${day} ${months[Number(month) - 1]} ${year}`;
+}
+
+// Undated legacy history stays undated and sorts after recorded events.
+export function recentHistory(a: Item, b: Item) {
+  return (
+    (b.completedAt || "").localeCompare(a.completedAt || "") ||
+    a.id.localeCompare(b.id)
+  );
+}
+export function historyDate(i: Item) {
+  if (!i.completedAt) return "";
+  const date = new Date(i.completedAt);
+  return Number.isNaN(+date) ? "" : displayDate(today(date));
 }

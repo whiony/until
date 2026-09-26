@@ -26,8 +26,8 @@ describe("demo fixtures and counts", () => {
     const r = demoRecords();
     expect(() => assertRealRecords(r)).toThrow("Demo");
     expect(() => assertRealRecords(emptyRecords())).not.toThrow();
-    expect(itemCount([r.items[1]])).toBe("1 item");
-    expect(itemCount(r.items.slice(0, 2))).toBe("3 items");
+    expect(itemCount([r.items[1]])).toBe("1 unit · 1 group");
+    expect(itemCount(r.items.slice(0, 2))).toBe("3 units · 2 groups");
   });
 });
 describe("editor validation", () => {

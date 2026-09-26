@@ -83,7 +83,7 @@ test("compact creation preserves values across help, disclosure, photos, keyboar
     await page.goto("/");
     await page
       .getByRole("button", {
-        name: width > 760 ? "Add item" : "Add",
+        name: width > 760 ? "Add item" : "Add item",
         exact: true,
       })
       .first()

@@ -73,7 +73,7 @@ A name is sufficient to save. Undated items automatically appear in Needs a date
 
 “Recognize product” explicitly runs on-device OCR on the selected product image. It displays actual extracted text and an editable suggestion; only “Use suggested name” changes the entered name. Sparse-text segmentation and a temporary high-contrast working copy help tinted labels. The stored product and packaging photos remain unchanged. It does not infer brand or identity from visual appearance. English OCR assets are local; other languages require a first-use CDN model download. Unsupported/unreadable labels and unavailable models keep a manual path. There is no paid recognition API and no photo transmission for OCR. Normal account photo sync remains separate.
 
-All-view counts represent physical units (sum of quantities) matching the selected filters, labeled “quantities included”. Cards still represent separate date/location batches. The compact desktop Soon summary counts active units needing attention (expired, within the selected horizon, or undated), and all active units matching search/category/location. The original warm color tokens are restored. Empty states distinguish an empty shelf, no upcoming dates and filtered results.
+All-view counts distinguish physical units (sum of quantities) from separate date/location groups matching the selected filters. Cards represent those groups. The compact desktop Soon summary counts active units needing attention (expired, within the selected horizon, or undated), and all active units matching search/category/location. The original warm color tokens are restored. Empty states distinguish an empty shelf, no upcoming dates and filtered results.
 
 ## PWA installation checks and limits
 
@@ -123,3 +123,14 @@ The introduction scrolls with the fields; only a compact title/close header and 
 Browser coverage checks explicit date confirmation/cancellation/clearing, unset defaults, name-only cloud records, disclosure states, preservation through help/crop/photo selection, close warnings, compact controls, scrolling introduction and 320/390/1440px layouts. Real iPhone Safari/Home Screen still needs verification for the native picker, keyboard viewport, safe areas and file/camera picker. Simulator, Xcode and Computer Use were not used.
 
 Validation for this flow: 34/34 unit tests and 24/24 full browser/integration tests passed; typecheck, lint and production build passed. Responsive screenshots at 320/390/1440px and a 390×440 keyboard-sized viewport were inspected. Browser tests await crop completion, viewport updates and completed saves before reload.
+
+
+### Shelf screens and recorded History events — 26 September 2026
+
+Soon, All items and History share compact spacing and coherent content boundaries. Phones retain single-column cards, a slim sticky safe-area header and a 44px plus-only Add item action. The final card clears the bottom navigation. Desktop List aligns identity, countdown/date and the action in bounded columns; quantity appears once in the information area. Grid/mobile quantity remains only in the footer. Active cards use a visibly styled Mark one as used button; existing quantity limits and split-record behavior remain intact.
+
+Counts explicitly distinguish physical units from record groups. All items displays its count once beside Your shelf; Soon displays the configured horizon once in its description. Navigation badges and attention summaries count units. Empty History has no Clear filters action; filters excluding existing records expose it. History search refers to used/discarded items.
+
+New use/discard actions record an optional completedAt timestamp, accepted by the existing authenticated sync schema. Most Recent History sorts by that actual event timestamp. Existing records are not backfilled from updatedAt: unknown dates stay blank and sort after recorded events. Used and Discarded are distinct; Add again creates an active item while preserving the historical record. No dependency, authorization, sharing or photo-processing changes were introduced. The Add item form was not redesigned.
+
+Validation: 36 unit tests and 26 full browser/integration scenarios, TypeScript, ESLint and production build pass. Tests cover event-date sync/reload, legacy unknown dates, sorting, Add again preservation, quantity boundaries, empty/filter distinctions, count semantics, configured horizons, navigation, and responsive layouts at 320/390/760/800/1024/1440/1920px. Real-device acceptance remains for Safari and installed PWA safe areas, sticky scrolling, search keyboard behavior and bottom navigation around the home indicator. No Simulator, Xcode or Computer Use was used; approval settings and private audience are unchanged.

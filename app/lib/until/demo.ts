@@ -57,7 +57,7 @@ export function demoRecords(day = today()): Records {
 export const units = (items: Item[]) =>
   items.reduce((sum, item) => sum + item.quantity, 0);
 export const itemCount = (items: Item[]) =>
-  `${units(items)} ${units(items) === 1 ? "item" : "items"}`;
+  `${units(items)} ${units(items) === 1 ? "unit" : "units"} · ${items.length} ${items.length === 1 ? "group" : "groups"}`;
 export function assertRealRecords(r: Records) {
   if ([...r.items, ...r.products].some((v) => v.id.startsWith(DEMO_PREFIX)))
     throw Error("Demo records cannot be saved.");

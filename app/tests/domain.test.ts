@@ -10,6 +10,8 @@ import {
   validateItem,
   today,
   urgency,
+  recentHistory,
+  historyDate,
   type Item,
 } from "../lib/until/domain";
 import { interpretText } from "../lib/until/recognition";
@@ -201,4 +203,43 @@ it("accepts a valid device date when the remote UTC day is still yesterday", () 
   expect(() =>
     validateItem(item({ openedDate: "2026-02-30" }), null),
   ).toThrow();
+});
+
+it("records actual completion dates for split units and whole groups without exceeding quantity", () => {
+  const r = emptyRecords();
+  const i = item();
+  r.items = [i];
+  vi.useFakeTimers();
+  vi.setSystemTime(new Date("2026-09-26T10:15:00.000Z"));
+  try {
+    completeUnit(r, i.id, "used");
+    expect(r.items[1].completedAt).toBe("2026-09-26T10:15:00.000Z");
+    expect(i.completedAt).toBeUndefined();
+    completeUnit(r, i.id, "discarded", true);
+    expect(i.completedAt).toBe("2026-09-26T10:15:00.000Z");
+    expect(i.quantity).toBe(2);
+    expect(() => completeUnit(r, i.id, "used")).toThrow();
+    expect(r.items.reduce((n, x) => n + x.quantity, 0)).toBe(3);
+  } finally {
+    vi.useRealTimers();
+  }
+});
+
+it("sorts history by recorded events and leaves old unknown dates empty", () => {
+  const old = item({ status: "used", updatedAt: "2026-09-26T12:00:00.000Z" });
+  const earlier = item({
+    status: "used",
+    completedAt: "2026-09-10T12:00:00.000Z",
+  });
+  const later = item({
+    status: "discarded",
+    completedAt: "2026-09-20T12:00:00.000Z",
+  });
+  expect([old, earlier, later].sort(recentHistory)).toEqual([
+    later,
+    earlier,
+    old,
+  ]);
+  expect(historyDate(old)).toBe("");
+  expect(historyDate(later)).toBe("20 Sep 2026");
 });
