@@ -15,7 +15,11 @@ export function Choice({
   onChange,
   options,
   help,
+  id,
+  name,
 }: {
+  id?: string;
+  name?: string;
   help?: string;
   label: string;
   value: string;
@@ -25,11 +29,20 @@ export function Choice({
   return (
     <div className="field">
       <span className="field-label">
-        {label}
+        <span id={id ? `${id}-label` : undefined}>{label}</span>
         {help && <Help label={label} text={help} />}
       </span>
-      <Select value={value} onValueChange={onChange}>
-        <SelectTrigger aria-label={label}>
+      <Select
+        value={value}
+        onValueChange={onChange}
+        name={name}
+        autoComplete={name ? "off" : undefined}
+      >
+        <SelectTrigger
+          id={id}
+          aria-label={label}
+          aria-labelledby={id ? `${id}-label` : undefined}
+        >
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
@@ -72,7 +85,11 @@ export function EditableChoice({
   onChange,
   defaults,
   customValues,
+  id,
+  name,
 }: {
+  id: string;
+  name: string;
   label: string;
   value: string;
   onChange: (v: string) => void;
@@ -86,6 +103,8 @@ export function EditableChoice({
   return (
     <div>
       <Choice
+        id={id}
+        name={name}
         label={label}
         value={custom ? "__custom" : value || "__unset"}
         options={[
@@ -104,9 +123,12 @@ export function EditableChoice({
       />
       {custom && (
         <label className="field">
-          <span>Custom {label.toLowerCase()}</span>
+          <span className="field-label">Custom {label.toLowerCase()}</span>
           <input
-            name={`until-custom-${label.toLowerCase()}`}
+            id={`${id}-custom`}
+            name={`${name}-custom`}
+            type="text"
+            inputMode="text"
             autoComplete="off"
             autoCorrect="off"
             autoFocus

@@ -48,6 +48,7 @@ export function DateField({
             type="button"
             role="combobox"
             id={props.id}
+            name={props.name}
             disabled={props.disabled}
             className={`date-trigger ${value ? "" : "unset"}`}
             aria-label={label}

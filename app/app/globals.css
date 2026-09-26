@@ -2204,7 +2204,7 @@ h1 {
 }
 @supports (-webkit-touch-callout:none) { @media (display-mode:standalone) and (max-width:760px) { .topbar { padding-top: calc(4px + max(var(--safe-top),20px)); } } }
 /* Form controls own their hit areas; label rows are not interactive containers. */
-.editor .field-label { width: fit-content; max-width: 100%; min-height: 32px !important; }
+.editor .field > label, .editor .field-label { display: flex; align-items: center; line-height: 1.4; width: fit-content; max-width: 100%; min-height: 32px !important; }
 .editor .field-label > label { margin: 0; padding: 0; }
 .editor .field-help { flex: 0 0 32px; width: 32px; min-width: 32px; min-height: 32px; height: 32px; padding: 0; border: 1px solid var(--border); }
 .field-help-content { width: min(300px, calc(100vw - 24px)); max-height: var(--radix-popover-content-available-height); overflow-y: auto; }
@@ -2222,6 +2222,10 @@ h1 {
 .date-picker > button { width: 100%; margin-top: 8px; min-height: 40px; }
 @media (max-width:760px) {
  .keyboard-open .editor .form-footer { display: none; }
+ /* The opaque editor already covers the visible viewport. Do not paint a
+    second flat surface behind the system keyboard and its accessory bar. */
+ .keyboard-open body:has(.editor) [data-slot="dialog-overlay"] { background: transparent; }
+ .keyboard-open body:has(.editor) { background: var(--background); }
  .editor .photo-section .field-label { font-size: 12px; align-items: center; gap: 4px; }
  .editor .photo-section .field-help { flex-basis: 32px; }
  .editor .photo-upload { font-size: 12px; gap: 6px; padding: 8px; }

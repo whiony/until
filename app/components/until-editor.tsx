@@ -339,7 +339,14 @@ export function Editor({
         <DialogTitle>
           {item ? "Edit item" : initialProduct ? "Add another" : "Add item"}
         </DialogTitle>
-        <form ref={formRef} onSubmit={submit} noValidate autoComplete="off">
+        <form
+          id="until-item-form"
+          name="until-item-entry"
+          ref={formRef}
+          onSubmit={submit}
+          noValidate
+          autoComplete="off"
+        >
           <div className="editor-fields">
             <DialogDescription>
               {item
@@ -357,6 +364,7 @@ export function Editor({
               <input
                 {...invalid("product-name")}
                 type="text"
+                inputMode="text"
                 autoCorrect="off"
                 required
                 maxLength={200}
@@ -443,6 +451,8 @@ export function Editor({
                       tabIndex={-1}
                       className="file-input"
                       aria-label="Product photo"
+                      id="until-product-photo"
+                      name="until-product-photo"
                       type="file"
                       accept="image/jpeg,image/png,image/webp"
                       onChange={(e) => {
@@ -525,6 +535,8 @@ export function Editor({
                       tabIndex={-1}
                       className="file-input"
                       aria-label="Label photo"
+                      id="until-packaging-photo"
+                      name="until-packaging-photo"
                       type="file"
                       accept="image/jpeg,image/png,image/webp"
                       onChange={(e) => {
@@ -552,6 +564,8 @@ export function Editor({
                 <>
                   <Choice
                     label="Packaging language"
+                    id="until-packaging-language"
+                    name="until-packaging-language"
                     value={language}
                     onChange={setLanguage}
                     options={[
@@ -564,6 +578,8 @@ export function Editor({
                   />
                   <Choice
                     label="Date text area"
+                    id="until-date-text-area"
+                    name="until-date-text-area"
                     value={dateArea}
                     onChange={(v) => setDateArea(v as typeof dateArea)}
                     options={[
@@ -652,10 +668,8 @@ export function Editor({
                 </div>
               )}
             </Disclosure>
-            <section className="date-section" aria-label="Optional dates">
-              <h2>
-                Dates <span>optional</span>
-              </h2>
+            <section className="date-section" aria-label="Dates">
+              <h2>Dates</h2>
               <div className="form-grid">
                 <DateField
                   {...invalid("printed-date")}
@@ -666,6 +680,8 @@ export function Editor({
                   error={fieldError("printed-date")}
                 />
                 <Choice
+                  id="until-item-date-kind"
+                  name="until-item-date-kind"
                   help="Choose what the label says: Best before describes quality; Use by marks the stated expiry date. Choose Unspecified if it does not say."
                   label="Date type"
                   value={group.dateKind}
@@ -696,7 +712,9 @@ export function Editor({
               />
               <div className="field duration-field">
                 <span className="field-label">
-                  Use within after opening
+                  <label htmlFor="opening-duration">
+                    Use within after opening
+                  </label>
                   <Help
                     label="Use within after opening"
                     text="Enter the duration stated on the label, such as 7 days or 6 months. You can record it before opening the item."
@@ -724,6 +742,8 @@ export function Editor({
                   />
                   <Choice
                     label="Duration unit"
+                    id="until-opening-duration-unit"
+                    name="until-opening-duration-unit"
                     value={group.rule?.unit || durationUnit}
                     options={[
                       { value: "days", label: "Days" },
@@ -766,7 +786,6 @@ export function Editor({
                     {...invalid("item-quantity")}
                     inputMode="numeric"
                     type="number"
-                    required
                     min={1}
                     max={9999}
                     value={Number.isNaN(group.quantity) ? "" : group.quantity}
@@ -776,6 +795,8 @@ export function Editor({
                 </div>
                 <EditableChoice
                   label="Location"
+                  id="until-item-location"
+                  name="until-item-location"
                   value={group.location}
                   onChange={(value) => g({ location: value })}
                   defaults={locations}
@@ -785,6 +806,8 @@ export function Editor({
               <div className="form-grid">
                 <EditableChoice
                   label="Category"
+                  id="until-product-category"
+                  name="until-product-category"
                   value={product.category}
                   onChange={(value) => p({ category: value })}
                   defaults={categories}
@@ -797,6 +820,8 @@ export function Editor({
                     maxLength={200}
                     placeholder="e.g. Haruharu wonder"
                     id="product-brand"
+                    type="text"
+                    inputMode="text"
                     name="until-product-brand"
                     autoComplete="off"
                     autoCorrect="off"
@@ -825,6 +850,8 @@ export function Editor({
                   <input
                     maxLength={100}
                     id="product-size"
+                    type="text"
+                    inputMode="text"
                     name="until-package-size"
                     autoComplete="off"
                     autoCorrect="off"
@@ -841,6 +868,7 @@ export function Editor({
                   maxLength={5000}
                   id="item-notes"
                   name="until-item-notes"
+                  inputMode="text"
                   autoComplete="off"
                   placeholder="Storage instructions or anything to remember"
                   value={group.notes}
