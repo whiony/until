@@ -296,6 +296,7 @@ test("row-sized grids, coherent placeholders, aligned list controls and full-wid
   for (const width of [1920, 1024, 760, 390, 320]) {
     await page.setViewportSize({ width, height: 1000 });
     await view(page, "History");
+    await expect(page.locator(".item-card")).toHaveCount(2);
     if (await page.getByRole("button", { name: "Show grid" }).isVisible())
       await page.getByRole("button", { name: "Show grid" }).click();
     const cards = await page.locator(".item-card").evaluateAll((cards) =>
@@ -319,6 +320,7 @@ test("row-sized grids, coherent placeholders, aligned list controls and full-wid
       await page.getByRole("button", { name: "Show grid" }).click();
     }
     await view(page, "All");
+    await expect(page.locator(".item-card")).toHaveCount(3);
     const activeRows = await page.locator(".item-card").evaluateAll((cards) =>
       cards.map((c) => {
         const b = c.getBoundingClientRect();

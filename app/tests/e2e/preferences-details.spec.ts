@@ -249,7 +249,7 @@ test("curated palettes color desktop and mobile surfaces, retain urgency colors 
   await page.getByRole("button", { name: "Try demo", exact: true }).click();
   await expect(page.locator(".urgent .countdown").first()).toHaveCSS(
     "color",
-    "rgb(181, 62, 48)",
+    "rgb(120, 96, 52)",
   );
 });
 

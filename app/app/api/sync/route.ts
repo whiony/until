@@ -1,4 +1,9 @@
-import { normalizeCategories, resolvedCategory } from "@/lib/until/preferences";
+import {
+  normalizeCategories,
+  resolvedCategory,
+  normalizeLocations,
+  resolvedLocation,
+} from "@/lib/until/preferences";
 import {
   database,
   owner,
@@ -78,15 +83,40 @@ const schema = z.object({
       )
       .max(200)
       .optional(),
+    locationRules: z
+      .array(
+        z.object({
+          name: z
+            .string()
+            .trim()
+            .min(1)
+            .max(100)
+            .refine((v) => !v.startsWith("__")),
+          hidden: z.boolean().optional(),
+          replacement: z.string().trim().max(100).optional(),
+        }),
+      )
+      .max(200)
+      .optional(),
     soonDays: z.number().int().min(1).max(90),
     notifications: z.object({
       requested: z.boolean(),
       expirationDay: z.boolean(),
       leadDays: z.number().int().min(0).max(90),
-      time: z.string().regex(/^\d{2}:\d{2}$/),
-      quietStart: z.string().regex(/^\d{2}:\d{2}$/),
-      quietEnd: z.string().regex(/^\d{2}:\d{2}$/),
-      timezone: z.string().max(100),
+      time: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/),
+      quietStart: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/),
+      quietEnd: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/),
+      timezone: z
+        .string()
+        .max(100)
+        .refine((timeZone) => {
+          try {
+            new Intl.DateTimeFormat("en", { timeZone });
+            return true;
+          } catch {
+            return false;
+          }
+        }),
     }),
   }),
 });
@@ -137,7 +167,32 @@ export async function PUT(req: Request) {
         // Resolve unused rules too, so cyclic redirects can never enter storage.
         resolvedCategory(r, rule.name);
       }
+      const locationKeys =
+        r.settings.locationRules?.map((c) => c.name.toLocaleLowerCase("en")) ||
+        [];
+      if (new Set(locationKeys).size !== locationKeys.length)
+        throw Error("Duplicate locations");
+      const locationBuiltins = [
+        "Fridge",
+        "Freezer",
+        "Pantry",
+        "Bathroom",
+        "Medicine Cabinet",
+        "Pet Supplies",
+      ];
+      for (const rule of r.settings.locationRules || []) {
+        if (
+          locationBuiltins.some(
+            (c) => c.toLowerCase() === rule.name.toLowerCase(),
+          ) &&
+          rule.replacement !== undefined
+        )
+          throw Error("Invalid built-in location");
+        // Resolve unused rules too, so cyclic redirects can never enter storage.
+        resolvedLocation(r, rule.name);
+      }
       normalizeCategories(r);
+      normalizeLocations(r);
     } catch {
       return new Response("Invalid categories", { status: 400 });
     }

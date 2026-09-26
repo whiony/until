@@ -50,7 +50,14 @@ export function Photo({
   }, [id, blob]);
   const Icon = icons[category] || Package;
   return (
-    <div className={`photo photo-${category.toLowerCase()}`}>
+    <div
+      className={`photo photo-${category.toLowerCase()}`}
+      data-category={
+        Object.keys(icons)
+          .find((c) => c.toLowerCase() === category.toLowerCase())
+          ?.toLowerCase() || "neutral"
+      }
+    >
       {url ? (
         // IndexedDB blob URLs are already resized and must remain available offline.
         // eslint-disable-next-line @next/next/no-img-element

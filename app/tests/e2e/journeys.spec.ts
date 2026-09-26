@@ -110,7 +110,7 @@ test("no fake notification enablement", async ({ page }) => {
     .getByRole("button", { name: "Check reminder availability" })
     .click();
   await expect(
-    page.getByRole("status").filter({ hasText: "Reminders are not available" }),
+    page.getByRole("status").filter({ hasText: "Server delivery is not configured" }),
   ).toBeVisible();
 });
 test("offline shell reload and offline edit persist", async ({

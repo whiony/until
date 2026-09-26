@@ -1,4 +1,4 @@
-import { normalizeCategories } from "./preferences";
+import { normalizeCategories, normalizeLocations } from "./preferences";
 import { assertRealRecords } from "./demo";
 import { cloudPhoto } from "./image-metadata";
 import { openDB, type DBSchema } from "idb";
@@ -59,6 +59,7 @@ export async function mutate(
   try {
     fn(r);
     normalizeCategories(r);
+    normalizeLocations(r);
     assertRealRecords(r);
     r.revision++;
     await tx.objectStore("state").put(r, key);

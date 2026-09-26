@@ -1,5 +1,5 @@
 "use client";
-import { categoryNames } from "@/lib/until/preferences";
+import { categoryNames, locationNames } from "@/lib/until/preferences";
 import { AppearanceCategories } from "./until-preferences";
 import { InlineDate } from "./until-inline-date";
 import { demoRecords, itemCount, units } from "@/lib/until/demo";
@@ -9,6 +9,7 @@ import {
   Plus,
   Sun,
   Clock3,
+  CircleAlert,
   Grid2X2,
   History,
   Settings2,
@@ -38,7 +39,6 @@ import { Photo } from "./until-photo";
 import { Editor, type EditorValue } from "./until-editor";
 import {
   emptyRecords,
-  locations,
   today,
   deadline,
   displayDate,
@@ -299,7 +299,12 @@ export default function UntilApp() {
                 <div className="card-status">
                   <div className="countdown">
                     {i.status === "active" ? (
-                      <Clock3 size={17} />
+                      urgency(i, records.settings.soonDays, now) ===
+                      "expired" ? (
+                        <CircleAlert size={17} />
+                      ) : (
+                        <Clock3 size={17} />
+                      )
                     ) : i.status === "used" ? (
                       <Check size={17} />
                     ) : (
@@ -532,12 +537,7 @@ export default function UntilApp() {
                       onChange={setLocation}
                       options={[
                         { value: "any", label: "All Locations" },
-                        ...[
-                          ...new Set([
-                            ...locations,
-                            ...records.items.map((i) => i.location),
-                          ]),
-                        ].filter(Boolean),
+                        ...locationNames(records),
                       ]}
                     />
                     <Choice
@@ -870,8 +870,18 @@ export default function UntilApp() {
                   <p className="muted">{selectedProduct.size}</p>
                 )}
                 <h2
-                  className={`detail-countdown ${urgency(selected, records.settings.soonDays, now)}`}
+                  className={`detail-countdown ${selected.status === "active" ? urgency(selected, records.settings.soonDays, now) : selected.status}`}
                 >
+                  {selected.status === "active" && (
+                    <>
+                      {urgency(selected, records.settings.soonDays, now) ===
+                      "expired" ? (
+                        <CircleAlert aria-hidden="true" />
+                      ) : (
+                        <Clock3 aria-hidden="true" />
+                      )}
+                    </>
+                  )}
                   {selected.status === "active"
                     ? countdown(selected, now)
                     : selected.status === "used"
@@ -1130,7 +1140,7 @@ function Settings({
               Push delivery. Saving preferences does not enable alerts.
             </p>
             <CheckField
-              label="Daily digest when reminders become available"
+              label="Save my preference for a daily digest (delivery unavailable)"
               checked={n.requested}
               onChange={(v) =>
                 setSettings({
@@ -1140,7 +1150,7 @@ function Settings({
               }
             />
             <CheckField
-              label="Also remind me on the expiration day"
+              label="Also remind me on the recorded date"
               checked={n.expirationDay}
               onChange={(v) =>
                 setSettings({
@@ -1217,7 +1227,8 @@ function Settings({
               type="button"
               onClick={async () => {
                 try {
-                  await notificationService.enable();
+                  const status = await notificationService.capability();
+                  setMessage(status.reason);
                 } catch (e) {
                   setMessage((e as Error).message);
                 }

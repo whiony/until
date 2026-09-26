@@ -1,4 +1,4 @@
-import { categories, type Records } from "./domain";
+import { categories, locations, stamp, type Records } from "./domain";
 export const themes = ["green", "peach", "lavender", "blue"] as const;
 export type Theme = (typeof themes)[number];
 export type CategoryRule = {
@@ -92,4 +92,97 @@ export function replaceCategory(
   if (rename) putRule(r, { name: replacement });
   putRule(r, { name, replacement });
   normalizeCategories(r);
+}
+
+export function resolvedLocation(r: Records, name: string): string {
+  const seen = new Set<string>();
+  while (name) {
+    const k = key(name);
+    if (seen.has(k)) throw Error("Location replacements cannot form a loop.");
+    seen.add(k);
+    const rule = r.settings.locationRules?.find((x) => key(x.name) === k);
+    if (!rule)
+      return locations.find((v) => key(v) === key(name)) || name.trim();
+    if (rule.replacement === undefined)
+      return locations.find((v) => key(v) === key(rule.name)) || rule.name;
+    name = rule.replacement;
+  }
+  return "";
+}
+export function locationNames(r: Records, selection = false): string[] {
+  const names = [
+    ...locations,
+    ...(r.settings.locationRules || []).map((x) => x.name),
+    ...r.items.map((p) => p.location),
+  ];
+  const unique = new Map<string, string>();
+  for (const name of names) {
+    const resolved = resolvedLocation(r, name);
+    const rule = r.settings.locationRules?.find(
+      (x) => key(x.name) === key(resolved),
+    );
+    if (resolved && !(selection && rule?.hidden))
+      unique.set(key(resolved), resolved);
+  }
+  return [...unique.values()];
+}
+export function normalizeLocations(r: Records) {
+  for (const p of r.items) p.location = resolvedLocation(r, p.location);
+}
+function putLocationRule(r: Records, rule: CategoryRule) {
+  const rules = r.settings.locationRules || [];
+  r.settings.locationRules = [
+    ...rules.filter((x) => key(x.name) !== key(rule.name)),
+    rule,
+  ];
+  if (r.settings.locationRules.length > 200)
+    throw Error("The location management limit is 200 names.");
+}
+function availableLocationName(r: Records, name: string) {
+  const clean = name.trim();
+  if (!clean || clean.length > 100 || clean.startsWith("__"))
+    throw Error("Enter a location name of 1–100 characters.");
+  if (
+    [
+      ...locations,
+      ...(r.settings.locationRules || []).map((x) => x.name),
+      ...r.items.map((p) => p.location),
+    ].some((x) => key(x) === key(clean))
+  )
+    throw Error(
+      "This location name already exists or was retired. Choose another name.",
+    );
+  return clean;
+}
+export function addLocation(r: Records, name: string) {
+  putLocationRule(r, { name: availableLocationName(r, name) });
+}
+export function hideLocation(r: Records, name: string, hidden: boolean) {
+  if (!locations.includes(name))
+    throw Error("Only built-in locations can be hidden.");
+  putLocationRule(r, { name, hidden });
+}
+export function replaceLocation(
+  r: Records,
+  name: string,
+  replacement: string,
+  rename = false,
+) {
+  if (locations.some((x) => key(x) === key(name)))
+    throw Error("Built-in locations can be hidden, not deleted or renamed.");
+  if (!locationNames(r).includes(name))
+    throw Error("This location changed. Reopen its settings.");
+  if (rename) replacement = availableLocationName(r, replacement);
+  else if (
+    replacement &&
+    (!locationNames(r).includes(replacement) || replacement === name)
+  )
+    throw Error("Choose a different existing location or No location.");
+  if (rename) putLocationRule(r, { name: replacement });
+  putLocationRule(r, { name, replacement });
+  const previous = r.items.map((i) => i.location);
+  normalizeLocations(r);
+  r.items.forEach((item, index) => {
+    if (previous[index] !== item.location) item.updatedAt = stamp();
+  });
 }

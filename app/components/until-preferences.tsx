@@ -1,7 +1,11 @@
 "use client";
 import { useState } from "react";
-import { categories, type Records } from "@/lib/until/domain";
+import { categories, locations, type Records } from "@/lib/until/domain";
 import {
+  addLocation,
+  locationNames,
+  hideLocation,
+  replaceLocation,
   addCategory,
   categoryNames,
   hideCategory,
@@ -9,10 +13,12 @@ import {
   themes,
 } from "@/lib/until/preferences";
 import { Choice } from "./until-controls";
-export function AppearanceCategories({
+function NameManagement({
+  kind,
   records,
   onChange,
 }: {
+  kind: "category" | "location";
   records: Records;
   onChange: (fn: (r: Records) => void) => Promise<void>;
 }) {
@@ -37,64 +43,74 @@ export function AppearanceCategories({
       setBusy(false);
     }
   }
-  const names = categoryNames(records);
+  const location = kind === "location";
+  const singular = location ? "location" : "category";
+  const plural = location ? "locations" : "categories";
+  const title = location ? "Locations" : "Categories";
+  const names = location ? locationNames(records) : categoryNames(records);
+  const builtins = location ? locations : categories;
+  const rules = location
+    ? records.settings.locationRules
+    : records.settings.categoryRules;
   const affected = edit
     ? records.items.filter(
         (i) =>
-          records.products.find((p) => p.id === i.productId)?.category ===
+          (location
+            ? i.location
+            : records.products.find((p) => p.id === i.productId)?.category) ===
           edit.name,
       ).length
     : 0;
   return (
-    <div className="settings preference-management">
-      <section aria-labelledby="themes-heading">
-        <h2 id="themes-heading">Color theme</h2>
+    <>
+      {!location && (
+        <section aria-labelledby="themes-heading">
+          <h2 id="themes-heading">Color theme</h2>
+          <p className="muted">
+            Choose a light palette for your shelf. Saved automatically on this
+            device and synced with your account.
+          </p>
+          <div className="theme-options">
+            {themes.map((theme) => (
+              <button
+                type="button"
+                key={theme}
+                data-theme={theme}
+                aria-pressed={(records.settings.theme || "green") === theme}
+                disabled={busy}
+                onClick={() =>
+                  save((r) => {
+                    r.settings.theme = theme;
+                  })
+                }
+              >
+                <span className="theme-preview" aria-hidden="true">
+                  <i />
+                  <i />
+                  <i />
+                </span>
+                {theme === "green"
+                  ? "Green"
+                  : theme === "peach"
+                    ? "Warm peach"
+                    : theme === "lavender"
+                      ? "Lavender"
+                      : "Soft blue"}
+              </button>
+            ))}
+          </div>
+        </section>
+      )}
+      <section aria-labelledby={`${plural}-heading`}>
+        <h2 id={`${plural}-heading`}>{title}</h2>
         <p className="muted">
-          Choose a light palette for your shelf. Saved automatically on this
-          device and synced with your account.
-        </p>
-        <div className="theme-options">
-          {themes.map((theme) => (
-            <button
-              type="button"
-              key={theme}
-              data-theme={theme}
-              aria-pressed={(records.settings.theme || "green") === theme}
-              disabled={busy}
-              onClick={() =>
-                save((r) => {
-                  r.settings.theme = theme;
-                })
-              }
-            >
-              <span className="theme-preview" aria-hidden="true">
-                <i />
-                <i />
-                <i />
-              </span>
-              {theme === "green"
-                ? "Green"
-                : theme === "peach"
-                  ? "Warm peach"
-                  : theme === "lavender"
-                    ? "Lavender"
-                    : "Soft blue"}
-            </button>
-          ))}
-        </div>
-      </section>
-      <section aria-labelledby="categories-heading">
-        <h2 id="categories-heading">Categories</h2>
-        <p className="muted">
-          Hide built-in categories from new selections, or manage your custom
-          categories. Existing items are kept.
+          Hide built-in {plural} from new selections, or manage your custom{" "}
+          {plural}. Existing items are kept.
         </p>
         <div className="category-list">
           {names.map((category) => {
-            const builtin = categories.includes(category);
-            const hidden = records.settings.categoryRules?.find(
-              (c) => c.name === category,
-            )?.hidden;
+            const builtin = builtins.includes(category);
+            const hidden = rules?.find((c) => c.name === category)?.hidden;
             return (
               <div className="category-row" key={category}>
                 <span>
@@ -110,7 +126,13 @@ export function AppearanceCategories({
                     disabled={busy}
                     aria-label={`${hidden ? "Show" : "Hide"} ${category}`}
                     onClick={() =>
-                      save((r) => hideCategory(r, category, !hidden))
+                      save((r) =>
+                        (location ? hideLocation : hideCategory)(
+                          r,
+                          category,
+                          !hidden,
+                        ),
+                      )
                     }
                   >
                     {hidden ? "Show" : "Hide"}
@@ -152,18 +174,18 @@ export function AppearanceCategories({
           <div
             className="category-confirm"
             role="group"
-            aria-label={`${edit.mode === "delete" ? "Delete" : "Rename"} category`}
+            aria-label={`${edit.mode === "delete" ? "Delete" : "Rename"} ${singular}`}
           >
             <h3>
               {edit.mode === "delete" ? "Delete" : "Rename"} {edit.name}
             </h3>
             <p>
-              {affected} {affected === 1 ? "item uses" : "items use"} this
-              category. No items will be deleted.
+              {affected} {affected === 1 ? "item uses" : "items use"} this{" "}
+              {singular}. No items will be deleted.
             </p>
             {edit.mode === "rename" ? (
               <label className="field">
-                <span>New category name</span>
+                <span>New {singular} name</span>
                 <input
                   maxLength={100}
                   autoComplete="off"
@@ -181,7 +203,10 @@ export function AppearanceCategories({
                 }}
                 options={[
                   { value: "__choose", label: "Choose a replacement" },
-                  { value: "__none", label: "Uncategorized" },
+                  {
+                    value: "__none",
+                    label: location ? "No location" : "Uncategorized",
+                  },
                   ...names.filter((n) => n !== edit.name),
                 ]}
               />
@@ -189,8 +214,9 @@ export function AppearanceCategories({
             {edit.mode === "delete" && chosen && (
               <p>
                 All {affected} {affected === 1 ? "item will" : "items will"}{" "}
-                move to {replacement || "Uncategorized"}. The category will be
-                removed from selection.
+                move to{" "}
+                {replacement || (location ? "No location" : "Uncategorized")}.
+                The {singular} will be removed from selection.
               </p>
             )}
             <div className="inline">
@@ -212,7 +238,7 @@ export function AppearanceCategories({
                 onClick={() =>
                   save(
                     (r) =>
-                      replaceCategory(
+                      (location ? replaceLocation : replaceCategory)(
                         r,
                         edit.name,
                         replacement,
@@ -224,16 +250,16 @@ export function AppearanceCategories({
               >
                 {edit.mode === "delete"
                   ? "Confirm deletion"
-                  : "Save category name"}
+                  : `Save ${singular} name`}
               </button>
             </div>
           </div>
         )}
         <div className="category-add">
           <label className="field">
-            <span>New category</span>
+            <span>New {singular}</span>
             <input
-              name="until-new-category"
+              name={`until-new-${singular}`}
               autoComplete="off"
               maxLength={100}
               value={name}
@@ -245,12 +271,12 @@ export function AppearanceCategories({
             disabled={busy || !name.trim()}
             onClick={() =>
               save(
-                (r) => addCategory(r, name),
+                (r) => (location ? addLocation : addCategory)(r, name),
                 () => setName(""),
               )
             }
           >
-            Add category
+            Add {singular}
           </button>
         </div>
       </section>
@@ -259,6 +285,18 @@ export function AppearanceCategories({
           {error}
         </p>
       )}
+    </>
+  );
+}
+
+export function AppearanceCategories(props: {
+  records: Records;
+  onChange: (fn: (r: Records) => void) => Promise<void>;
+}) {
+  return (
+    <div className="settings preference-management">
+      <NameManagement {...props} kind="category" />
+      <NameManagement {...props} kind="location" />
     </div>
   );
 }

@@ -29,7 +29,8 @@ test("optional dates commit only on day selection, clear explicitly, and name-on
   await date.click();
   await page.getByRole("button", { name: "Clear date", exact: true }).click();
   await expect(date).toHaveText("Add a date");
-  await page.getByLabel("Date type", { exact: true }).click();
+  await page.locator(".date-wording summary").click();
+  await page.getByLabel("What does the label say?", { exact: true }).click();
   await page.getByRole("option", { name: "Best before", exact: true }).click();
   await expandSection(page, "More details");
   for (const label of ["Location", "Category"])

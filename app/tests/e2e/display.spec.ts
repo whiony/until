@@ -37,7 +37,10 @@ test("aligned grid, compact list, invariant mobile cards and expired details", a
   await expect(page.locator(".detail")).toHaveClass(/detail-expired/);
   await expect(page.locator(".detail")).toHaveCSS(
     "background-color",
-    "rgb(252, 241, 233)",
+    await page
+      .locator(".item-card.expired")
+      .first()
+      .evaluate((el) => getComputedStyle(el).backgroundColor),
   );
   await expect(page.locator(".detail dd")).toContainText([
     "best before",

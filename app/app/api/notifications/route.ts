@@ -1,7 +1,17 @@
-export function GET() {
-  return Response.json({
-    available: false,
-    reason:
-      "Reminders are not available yet. This site needs a server scheduler, a push subscription store, and Web Push credentials. Your preferences can be saved, but no alerts will be sent.",
-  });
+import { owner, failure } from "@/lib/until/server";
+export async function GET(req: Request) {
+  try {
+    await owner(req);
+    return Response.json(
+      {
+        available: false,
+        state: "unavailable",
+        reason:
+          "Server delivery is not configured. No device subscriptions or alerts are active. Saving reminder preferences does not enable notifications.",
+      },
+      { headers: { "Cache-Control": "no-store" } },
+    );
+  } catch (error) {
+    return failure(error);
+  }
 }

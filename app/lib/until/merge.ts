@@ -1,4 +1,4 @@
-import { normalizeCategories } from "./preferences";
+import { normalizeCategories, normalizeLocations } from "./preferences";
 import { emptyRecords, type Records } from "./domain";
 export class SyncConflict extends Error {
   constructor(public fields: string[]) {
@@ -91,10 +91,26 @@ export function mergeRecords(
           );
         return merge(rule(base), rule(local), rule(remote), `category:${name}`);
       }),
+      locationRules: [
+        ...new Set(
+          [base, local, remote].flatMap((x) =>
+            (x.settings.locationRules || []).map((c) =>
+              c.name.toLocaleLowerCase("en"),
+            ),
+          ),
+        ),
+      ].map((name) => {
+        const rule = (r: Records) =>
+          r.settings.locationRules?.find(
+            (c) => c.name.toLocaleLowerCase("en") === name,
+          );
+        return merge(rule(base), rule(local), rule(remote), `location:${name}`);
+      }),
     },
   };
   if (conflicts.length) throw new SyncConflict(conflicts);
   normalizeCategories(result);
+  normalizeLocations(result);
   return result;
 }
 export const recordsEqual = (a: Records, b: Records) =>
@@ -106,6 +122,7 @@ export const recordsEqual = (a: Records, b: Records) =>
         ...a.settings,
         theme: a.settings.theme || "green",
         categoryRules: a.settings.categoryRules || [],
+        locationRules: a.settings.locationRules || [],
       },
     },
     {
@@ -115,6 +132,7 @@ export const recordsEqual = (a: Records, b: Records) =>
         ...b.settings,
         theme: b.settings.theme || "green",
         categoryRules: b.settings.categoryRules || [],
+        locationRules: b.settings.locationRules || [],
       },
     },
   );

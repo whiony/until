@@ -1,5 +1,6 @@
 "use client";
-import { categoryNames } from "@/lib/until/preferences";
+import { DateKindField } from "./until-date-kind";
+import { categoryNames, locationNames } from "@/lib/until/preferences";
 import { useState, useCallback, useRef } from "react";
 import { DateField } from "./until-date-field";
 import { Disclosure } from "./until-disclosure";
@@ -28,7 +29,6 @@ import { Photo } from "./until-photo";
 import { Scanner } from "./until-scanner";
 import {
   displayDate,
-  locations,
   newId,
   stamp,
   validateItem,
@@ -715,20 +715,11 @@ export function Editor({
                   help="Enter the date printed on the packaging. Leave it empty if there is no date."
                   error={fieldError("printed-date")}
                 />
-                <Choice
-                  id="until-item-date-kind"
-                  name="until-item-date-kind"
-                  help="Choose what the label says: Best before describes quality; Use by marks the stated expiry date. Choose Unspecified if it does not say."
-                  label="Date type"
-                  value={group.dateKind}
-                  onChange={(v) => g({ dateKind: v as Item["dateKind"] })}
-                  options={[
-                    { value: "unspecified", label: "Unspecified" },
-                    { value: "best before", label: "Best before" },
-                    { value: "use by", label: "Use by" },
-                  ]}
-                />
               </div>
+              <DateKindField
+                value={group.dateKind}
+                onChange={(dateKind) => g({ dateKind })}
+              />
             </section>
             <Disclosure
               title="After opening"
@@ -835,8 +826,8 @@ export function Editor({
                   name="until-item-location"
                   value={group.location}
                   onChange={(value) => g({ location: value })}
-                  defaults={locations}
-                  customValues={records.items.map((i) => i.location)}
+                  defaults={locationNames(records, true)}
+                  customValues={[]}
                 />
               </div>
               <div className="form-grid">
@@ -854,7 +845,7 @@ export function Editor({
                   <label htmlFor="product-brand">Brand</label>
                   <input
                     maxLength={200}
-                    placeholder="e.g. Haruharu wonder"
+                    placeholder="Brand name"
                     id="product-brand"
                     type="text"
                     inputMode="text"

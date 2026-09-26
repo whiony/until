@@ -42,6 +42,7 @@ export type Item = {
 export type Settings = {
   theme?: import("./preferences").Theme;
   categoryRules?: import("./preferences").CategoryRule[];
+  locationRules?: import("./preferences").CategoryRule[];
   soonDays: number;
   notifications: {
     requested: boolean;
@@ -175,18 +176,26 @@ export function countdown(i: Item, now = today()) {
   const n = daysLeft(date, now);
   const best =
     i.dateKind === "best before" && deadline(i).controls === "printed date";
+  const neutral =
+    i.dateKind === "unspecified" && deadline(i).controls === "printed date";
   return n < 0
-    ? best
-      ? `Best before was ${-n} ${n === -1 ? "day" : "days"} ago`
-      : `Expired ${-n} ${n === -1 ? "day" : "days"} ago`
+    ? neutral
+      ? `Recorded date was ${-n} ${n === -1 ? "day" : "days"} ago`
+      : best
+        ? `Best before was ${-n} ${n === -1 ? "day" : "days"} ago`
+        : `Expired ${-n} ${n === -1 ? "day" : "days"} ago`
     : n === 0
-      ? best
-        ? "Best before today"
-        : "Expires today"
+      ? neutral
+        ? "Recorded date is today"
+        : best
+          ? "Best before today"
+          : "Expires today"
       : n === 1
-        ? best
-          ? "Best before tomorrow"
-          : "Expires tomorrow"
+        ? neutral
+          ? "Recorded date is tomorrow"
+          : best
+            ? "Best before tomorrow"
+            : "Expires tomorrow"
         : `${n} days left`;
 }
 // A server has no authoritative local calendar day for a travelling device.

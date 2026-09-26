@@ -1,4 +1,5 @@
 "use client";
+import { DateKindField } from "./until-date-kind";
 import { useState } from "react";
 import {
   stamp,
@@ -8,7 +9,6 @@ import {
   type Records,
 } from "@/lib/until/domain";
 import { DateField } from "./until-date-field";
-import { Choice } from "./until-controls";
 export function InlineDate({
   item,
   disabled,
@@ -79,17 +79,12 @@ export function InlineDate({
           value={date}
           onChange={setDate}
         />
-        <Choice
-          label="Date type"
-          value={kind}
-          onChange={(v) => setKind(v as DateKind)}
-          options={[
-            { value: "unspecified", label: "Unspecified" },
-            { value: "best before", label: "Best before" },
-            { value: "use by", label: "Use by" },
-          ]}
-        />
       </div>
+      <DateKindField
+        id="until-detail-date-kind"
+        value={kind}
+        onChange={setKind}
+      />
       <p className="muted">
         Use the date printed on the package. Leave the type unspecified if the
         label does not say.

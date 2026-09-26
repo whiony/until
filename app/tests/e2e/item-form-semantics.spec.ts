@@ -67,7 +67,7 @@ test("rendered item controls have stable semantics, one form owner and only one 
   }
   // Radix renders real, visually hidden selects: audit those, not just trigger props.
   for (const [label, name] of [
-    ["Date type", "until-item-date-kind"],
+    ["What does the label say?", "until-item-date-kind"],
     ["Duration unit", "until-opening-duration-unit"],
     ["Location", "until-item-location"],
     ["Category", "until-product-category"],
@@ -117,6 +117,7 @@ test("rendered item controls have stable semantics, one form owner and only one 
     "aria-invalid",
     "true",
   );
+  await expect(page.getByLabel("Product name *")).toBeFocused();
   await page.getByLabel("Product name *").fill("Semantic item");
   await page.getByLabel("Quantity", { exact: true }).fill("0");
   await form.getByRole("button", { name: "Add item", exact: true }).click();
@@ -124,7 +125,9 @@ test("rendered item controls have stable semantics, one form owner and only one 
     "aria-invalid",
     "true",
   );
+  await expect(page.getByLabel("Quantity", { exact: true })).toBeFocused();
   await page.getByLabel("Quantity", { exact: true }).fill("2");
+  await expect(page.getByLabel("Quantity", { exact: true })).toHaveValue("2");
   await page.getByLabel("Brand", { exact: true }).fill("Test brand");
   await page.getByLabel("Package size", { exact: true }).fill("50 g");
   await page.getByLabel("Notes", { exact: true }).fill("Keep dry");

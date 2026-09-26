@@ -88,3 +88,83 @@ it("older clients omitting theme cannot erase a saved choice", () => {
   remote.settings.soonDays = 10;
   expect(mergeRecords(base, local, remote).settings.theme).toBe("blue");
 });
+
+import {
+  addLocation,
+  hideLocation,
+  replaceLocation,
+  locationNames,
+} from "../lib/until/preferences";
+import type { Item } from "../lib/until/domain";
+const storedItem = (location: string): Item => ({
+  id: crypto.randomUUID(),
+  productId: crypto.randomUUID(),
+  location,
+  quantity: 3,
+  printedDate: "2026-10-01",
+  dateKind: "best before",
+  openedDate: "",
+  purchaseDate: "",
+  notes: "Keep me",
+  status: "active",
+  createdAt: "2026-01-01",
+  updatedAt: "2026-01-01",
+  schemaVersion: 1,
+});
+it("manages locations with explicit reassignment, canonical names and retired offline aliases", () => {
+  const r = emptyRecords();
+  addLocation(r, "Cupboard");
+  const item = storedItem("Cupboard");
+  r.items.push(item);
+  const original = { ...item };
+  replaceLocation(r, "Cupboard", "Kitchen", true);
+  expect(r.items[0].location).toBe("Kitchen");
+  expect(r.items[0].updatedAt).not.toBe(original.updatedAt);
+  expect({
+    ...r.items[0],
+    location: original.location,
+    updatedAt: original.updatedAt,
+  }).toEqual(original);
+  expect(() => addLocation(r, " fridge ")).toThrow();
+  expect(() => replaceLocation(r, "Fridge", "")).toThrow();
+  expect(() => replaceLocation(r, "Kitchen", "Missing")).toThrow();
+  replaceLocation(r, "Kitchen", "Pantry");
+  expect(r.items[0].location).toBe("Pantry");
+  expect(locationNames(r)).not.toContain("Cupboard");
+  hideLocation(r, "Fridge", true);
+  expect(locationNames(r, true)).not.toContain("Fridge");
+  expect(locationNames(r)).toContain("Fridge");
+  expect(new Set(locationNames(r).map((s) => s.toLowerCase())).size).toBe(
+    locationNames(r).length,
+  );
+});
+it("reconciles stale offline locations and separate device changes without dropping records", () => {
+  const base = emptyRecords();
+  addLocation(base, "Desk");
+  const local = structuredClone(base),
+    remote = structuredClone(base);
+  local.items.push(storedItem("Desk"));
+  replaceLocation(remote, "Desk", "Study", true);
+  const merged = mergeRecords(base, local, remote);
+  expect(merged.items[0].location).toBe("Study");
+  expect(local.items[0].location).toBe("Desk");
+  const next = structuredClone(merged);
+  replaceLocation(next, "Study", "");
+  expect(next.items[0].location).toBe("");
+  expect(next.items).toHaveLength(1);
+});
+
+it("canonicalizes imported built-in locations and preserves overlapping rename conflicts", () => {
+  const base = emptyRecords();
+  base.items.push(storedItem("fridge"));
+  expect(
+    locationNames(base).filter((v) => v.toLowerCase() === "fridge"),
+  ).toEqual(["Fridge"]);
+  addLocation(base, "Loft");
+  const local = structuredClone(base),
+    remote = structuredClone(base);
+  replaceLocation(local, "Loft", "Attic", true);
+  replaceLocation(remote, "Loft", "Upstairs", true);
+  expect(() => mergeRecords(base, local, remote)).toThrow(SyncConflict);
+  expect(base.settings.locationRules).toEqual([{ name: "Loft" }]);
+});
