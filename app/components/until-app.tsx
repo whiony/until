@@ -39,6 +39,7 @@ import {
   locations,
   today,
   deadline,
+  displayDate,
   daysLeft,
   countdown,
   urgency,
@@ -260,21 +261,24 @@ export default function UntilApp() {
                     {[p.brand, p.size].filter(Boolean).join(" · ") ||
                       `${i.quantity} ${i.quantity === 1 ? "unit" : "units"}${i.status === "active" ? " on your shelf" : ` ${i.status}`}`}
                   </p>
-                  <div className="countdown">
-                    <Clock3 size={17} />
+                </div>
+                <div className="countdown">
+                  <Clock3 size={17} />
+                  <span>
                     {i.status === "active"
                       ? countdown(i, now)
                       : i.status === "used"
                         ? "Used"
                         : "Discarded"}
-                  </div>
-                  <p className="date-caption">
-                    {i.status === "active"
-                      ? deadline(i).date || "Add a date when you have it"
-                      : `Recorded as ${i.status}`}
-                    {i.status === "active" && i.openedDate ? " · Opened" : ""}
-                  </p>
+                  </span>
                 </div>
+                <p className="date-caption">
+                  {i.status === "active"
+                    ? displayDate(deadline(i).date) ||
+                      "Add a date when you have it"
+                    : `Recorded as ${i.status}`}
+                  {i.status === "active" && i.openedDate ? " · opened" : ""}
+                </p>
                 <ArrowUpRight className="card-arrow" size={19} />
               </button>
               <div className="card-bottom">
@@ -464,11 +468,11 @@ export default function UntilApp() {
                   </div>
                   <div className="filter-row">
                     <Choice
-                      label="Location filter"
+                      label="Location Filter"
                       value={location}
                       onChange={setLocation}
                       options={[
-                        { value: "any", label: "All locations" },
+                        { value: "any", label: "All Locations" },
                         ...[
                           ...new Set([
                             ...locations,
@@ -478,11 +482,11 @@ export default function UntilApp() {
                       ]}
                     />
                     <Choice
-                      label="Category filter"
+                      label="Category Filter"
                       value={category}
                       onChange={setCategory}
                       options={[
-                        { value: "any", label: "All categories" },
+                        { value: "any", label: "All Categories" },
                         ...[
                           ...new Set([
                             ...categories,
@@ -493,7 +497,7 @@ export default function UntilApp() {
                     />
                     {view === "all" && (
                       <Choice
-                        label="Status filter"
+                        label="Status Filter"
                         value={status}
                         onChange={setStatus}
                         options={[
@@ -507,19 +511,19 @@ export default function UntilApp() {
                           value,
                           label:
                             value === "needs a date"
-                              ? "Needs a date"
+                              ? "Needs a Date"
                               : value[0].toUpperCase() + value.slice(1),
                         }))}
                       />
                     )}
                     <Choice
-                      label="Sort items"
+                      label="Sort Items"
                       value={sort}
                       onChange={setSort}
                       options={[
-                        { value: "soonest", label: "Soonest first" },
-                        { value: "added", label: "Recently added" },
-                        { value: "opened", label: "Recently opened" },
+                        { value: "soonest", label: "Soonest First" },
+                        { value: "added", label: "Recently Added" },
+                        { value: "opened", label: "Recently Opened" },
                         { value: "name", label: "Name A–Z" },
                       ]}
                     />
@@ -734,14 +738,21 @@ export default function UntilApp() {
       )}
       {selected && selectedProduct && !editor && (
         <Dialog open onOpenChange={(v) => !v && setDetail(null)}>
-          <DialogContent className="modal detail">
+          <DialogContent
+            className={`modal detail ${selected.status === "active" && urgency(selected, records.settings.soonDays, now) === "expired" ? "detail-expired" : ""}`}
+          >
             <DialogTitle>
               {selectedProduct.name}
               {demo ? " · Demo" : ""}
             </DialogTitle>
             <DialogDescription>
-              {selectedProduct.brand} · {selectedProduct.category} ·{" "}
-              {selected.location}
+              {[
+                selectedProduct.brand,
+                selectedProduct.category,
+                selected.location,
+              ]
+                .filter(Boolean)
+                .join(" · ")}
             </DialogDescription>
             <Photo
               id={selectedProduct.photoId}
@@ -761,7 +772,8 @@ export default function UntilApp() {
               <div>
                 <dt>Printed date</dt>
                 <dd>
-                  {selected.printedDate || "Not recorded"} · {selected.dateKind}
+                  {displayDate(selected.printedDate) || "not recorded"} ·{" "}
+                  {selected.dateKind}
                 </dd>
               </div>
               <div>
@@ -769,21 +781,26 @@ export default function UntilApp() {
                 <dd>
                   {selected.rule
                     ? `${selected.rule.amount} ${selected.rule.unit}`
-                    : "Not recorded"}
+                    : "not recorded"}
                 </dd>
               </div>
               <div>
                 <dt>Opened</dt>
                 <dd>
-                  {selected.openedDate ||
+                  {displayDate(selected.openedDate) ||
                     (selected.status === "active"
-                      ? "Unopened"
-                      : "Opening date not recorded")}
+                      ? "unopened"
+                      : "opening date not recorded")}
                 </dd>
               </div>
               <div>
                 <dt>After-opening deadline</dt>
-                <dd>{deadline(selected).opening || (selected.status === "active" ? "Not applicable yet" : "Not recorded")}</dd>
+                <dd>
+                  {displayDate(deadline(selected).opening) ||
+                    (selected.status === "active"
+                      ? "not applicable yet"
+                      : "not recorded")}
+                </dd>
               </div>
               <div>
                 <dt>Quantity</dt>
@@ -794,7 +811,7 @@ export default function UntilApp() {
               {selected.purchaseDate && (
                 <div>
                   <dt>Purchased</dt>
-                  <dd>{selected.purchaseDate}</dd>
+                  <dd>{displayDate(selected.purchaseDate)}</dd>
                 </div>
               )}
               {selectedProduct.barcode && (

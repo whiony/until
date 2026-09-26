@@ -246,3 +246,24 @@ export function inSoon(i: Item, window: number, now = today()) {
     daysLeft(d, now) <= window
   );
 }
+
+// Display only: stored calendar values and deadline arithmetic remain ISO-based.
+export function displayDate(value: string) {
+  if (!validDate(value)) return "";
+  const [year, month, day] = value.split("-");
+  const months = [
+    "Jan",
+    "Feb",
+    "Mar",
+    "Apr",
+    "May",
+    "Jun",
+    "Jul",
+    "Aug",
+    "Sep",
+    "Oct",
+    "Nov",
+    "Dec",
+  ];
+  return `${day} ${months[Number(month) - 1]} ${year}`;
+}

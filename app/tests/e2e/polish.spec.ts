@@ -71,15 +71,15 @@ test("long filter values keep stable mobile grid and desktop views identify curr
   await page.getByRole("button", { name: "All", exact: true }).click();
   const row = page.locator(".filter-row"),
     before = await row.boundingBox();
-  for (const status of ["Needs a date", "Unopened", "Discarded", "Active"]) {
-    await page.getByLabel("Status filter", { exact: true }).click();
+  for (const status of ["Needs a Date", "Unopened", "Discarded", "Active"]) {
+    await page.getByLabel("Status Filter", { exact: true }).click();
     await page.getByRole("option", { name: status, exact: true }).click();
     const after = await row.boundingBox();
     expect(after!.height).toBe(before!.height);
   }
-  await page.getByLabel("Sort items", { exact: true }).click();
+  await page.getByLabel("Sort Items", { exact: true }).click();
   await page
-    .getByRole("option", { name: "Recently opened", exact: true })
+    .getByRole("option", { name: "Recently Opened", exact: true })
     .click();
   expect((await row.boundingBox())!.height).toBe(before!.height);
   expect(
