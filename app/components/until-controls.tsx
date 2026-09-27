@@ -97,6 +97,8 @@ export function EditableChoice({
   customValues: string[];
 }) {
   const [custom, setCustom] = useState(false);
+  const [draft, setDraft] = useState("");
+  const [original, setOriginal] = useState(value);
   const values = [
     ...new Set([...defaults, ...customValues, value].filter(Boolean)),
   ];
@@ -114,6 +116,8 @@ export function EditableChoice({
         ]}
         onChange={(v) => {
           if (v === "__custom") {
+            setOriginal(value);
+            setDraft("");
             setCustom(true);
           } else {
             setCustom(false);
@@ -133,11 +137,31 @@ export function EditableChoice({
             autoCorrect="off"
             autoFocus
             maxLength={100}
-            value={value}
-            onChange={(e) => onChange(e.target.value)}
+            value={draft}
+            onChange={(e) => {
+              setDraft(e.target.value);
+              const entered = e.target.value.trim();
+              onChange(
+                values.find((v) => v.toLowerCase() === entered.toLowerCase()) ||
+                  entered ||
+                  original,
+              );
+            }}
             placeholder={`Enter a ${label.toLowerCase()}`}
           />
         </label>
+      )}
+      {custom && (
+        <button
+          type="button"
+          className="custom-cancel"
+          onClick={() => {
+            onChange(original);
+            setCustom(false);
+          }}
+        >
+          Use existing {label.toLowerCase()}
+        </button>
       )}
     </div>
   );

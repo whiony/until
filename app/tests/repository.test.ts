@@ -52,3 +52,60 @@ it("rejects a demo snapshot atomically without changing existing real records", 
   );
   expect(await readRecords()).toEqual(before);
 });
+
+it("removes local photo bytes only after the final explicit deletion, including baseline copies", async () => {
+  const { deleteItem } = await import("../lib/until/repository");
+  const { openDB } = await import("idb");
+  const productId = crypto.randomUUID(),
+    first = crypto.randomUUID(),
+    second = crypto.randomUUID(),
+    photo = crypto.randomUUID(),
+    label = crypto.randomUUID(),
+    at = new Date().toISOString();
+  const r = await mutate(
+    (r) => {
+      r.products = [
+        {
+          id: productId,
+          name: "Real shared product",
+          brand: "",
+          category: "Food",
+          barcode: "",
+          size: "",
+          photoId: photo,
+          createdAt: at,
+          updatedAt: at,
+          schemaVersion: 1,
+        },
+      ];
+      const item = {
+        id: first,
+        productId,
+        quantity: 1,
+        printedDate: "",
+        dateKind: "unspecified" as const,
+        openedDate: "",
+        purchaseDate: "",
+        location: "",
+        notes: "",
+        packagingPhotoId: label,
+        status: "used" as const,
+        completedAt: at,
+        createdAt: at,
+        updatedAt: at,
+        schemaVersion: 1 as const,
+      };
+      r.items = [item, { ...item, id: second, status: "discarded" }];
+    },
+    { [photo]: new Blob(["product"]), [label]: new Blob(["label"]) },
+  );
+  const db = await openDB("until", 1);
+  await db.put("state", r, "base:undefined");
+  await deleteItem(first);
+  expect(await (await getPhoto(photo))?.text()).toBe("product");
+  expect(await (await getPhoto(label))?.text()).toBe("label");
+  await deleteItem(second);
+  expect(await getPhoto(photo)).toBeUndefined();
+  expect(await getPhoto(label)).toBeUndefined();
+  expect((await readRecords()).items).toHaveLength(0);
+});

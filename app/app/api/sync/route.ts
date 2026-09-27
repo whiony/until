@@ -1,3 +1,8 @@
+import { env } from "cloudflare:workers";
+import { withAccountStorage } from "@/lib/until/storage-lock";
+import { cleanupRemotePhotos } from "@/lib/until/server-deletion";
+import { applyDeletions, retiredPhotoIds } from "@/lib/until/deletion";
+import { photoIds } from "@/lib/until/merge";
 import {
   normalizeCategories,
   resolvedCategory,
@@ -12,7 +17,7 @@ import {
   limitedBody,
 } from "@/lib/until/server";
 import { z } from "zod";
-import { validateItem } from "@/lib/until/domain";
+import { emptyRecords, validateItem } from "@/lib/until/domain";
 const date = z.string().max(10),
   id = z.string().uuid(),
   ts = z.string().datetime();
@@ -57,6 +62,10 @@ const item = z.object({
     .optional(),
   status: z.enum(["active", "used", "discarded"]),
   completedAt: ts.optional(),
+  dateAcknowledgement: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}\/\d{4}-\d{2}-\d{2}$/)
+    .optional(),
   createdAt: ts,
   updatedAt: ts,
   schemaVersion: z.literal(1),
@@ -64,6 +73,18 @@ const item = z.object({
 const schema = z.object({
   schemaVersion: z.literal(1),
   revision: z.number().int().min(0),
+  deletionEpoch: z.number().int().min(0).optional(),
+  deletions: z
+    .array(
+      z.object({
+        id,
+        kind: z.enum(["item", "product"]),
+        at: ts,
+        photos: z.array(id).max(2).optional(),
+      }),
+    )
+    .max(60000)
+    .optional(),
   products: z.array(product).max(10000),
   items: z.array(item).max(30000),
   settings: z.object({
@@ -120,7 +141,7 @@ const schema = z.object({
     }),
   }),
 });
-export async function PUT(req: Request) {
+async function put(req: Request) {
   try {
     sameOrigin(req);
     const key = await owner(req);
@@ -211,6 +232,48 @@ export async function PUT(req: Request) {
     } catch {
       return new Response("Invalid item", { status: 400 });
     }
+    const previous = await database()
+      .prepare("SELECT payload,revision FROM account_records WHERE owner=?")
+      .bind(key)
+      .first<{ payload: string; revision: number }>();
+    if ((previous?.revision || 0) !== expected)
+      return new Response("Version changed", { status: 409 });
+    const before = previous ? JSON.parse(previous.payload) : null;
+    if ((r.deletionEpoch || 0) !== (before?.deletionEpoch || 0))
+      return new Response("Reconciliation required", { status: 409 });
+    const markers = new Map(
+      (before?.deletions || []).map((d: { kind: string; id: string }) => [
+        `${d.kind}:${d.id}`,
+        d,
+      ]),
+    );
+    for (const d of r.deletions || []) {
+      // The server's first deletion time is authoritative; clock skew cannot
+      // extend marker retention indefinitely or trigger early compaction.
+      const old = markers.get(`${d.kind}:${d.id}`);
+      if (!old)
+        markers.set(`${d.kind}:${d.id}`, {
+          ...d,
+          at: new Date().toISOString(),
+        });
+    }
+    r.deletions = [...markers.values()] as NonNullable<typeof r.deletions>;
+    for (const old of before?.items || [])
+      if (
+        !r.items.some((i) => i.id === old.id) &&
+        !markers.has(`item:${old.id}`)
+      )
+        return new Response("Explicit deletion required", { status: 400 });
+    const retired = new Set(retiredPhotoIds(before || r));
+    if (photoIds(r).some((id) => retired.has(id)))
+      return new Response("Photo has been retired", { status: 409 });
+    applyDeletions(r);
+    const previousPhotos = new Set(before ? photoIds(before) : []);
+    if (env.BUCKET)
+      for (const id of photoIds(r).filter((id) => !previousPhotos.has(id))) {
+        if (!(await env.BUCKET.head(`account/${key}/${id}`)))
+          return new Response("Photo upload required", { status: 409 });
+      }
     // Atomic compare-and-swap. A stale device must pull and merge, never overwrite.
     const result =
       expected === 0
@@ -228,30 +291,73 @@ export async function PUT(req: Request) {
             .run();
     if (!result.meta.changes)
       return new Response("Version changed", { status: 409 });
+    // Cleanup is retryable on the next pull if object storage is unavailable.
+    try {
+      await cleanupRemotePhotos(key, r);
+    } catch {}
     return Response.json(
-      { account: key, revision: expected + 1 },
+      { account: key, revision: expected + 1, records: r },
       { headers: { "Cache-Control": "no-store" } },
     );
   } catch (e) {
     return failure(e);
   }
 }
-export async function GET(req: Request) {
+async function get(req: Request) {
   try {
     const key = await owner(req);
     const row = await database()
       .prepare("SELECT payload,revision FROM account_records WHERE owner=?")
       .bind(key)
       .first<{ payload: string; revision: number }>();
+    let records = row ? JSON.parse(row.payload) : null;
+    let revision = row?.revision || 0;
+    if (!records) {
+      try {
+        await cleanupRemotePhotos(key, emptyRecords());
+      } catch {}
+    }
+    if (records) {
+      try {
+        const clean = await cleanupRemotePhotos(key, records);
+        if (JSON.stringify(clean) !== JSON.stringify(records)) {
+          const result = await database()
+            .prepare(
+              "UPDATE account_records SET revision=revision+1,payload=?,updated_at=? WHERE owner=? AND revision=?",
+            )
+            .bind(
+              JSON.stringify(clean),
+              new Date().toISOString(),
+              key,
+              revision,
+            )
+            .run();
+          if (!result.meta.changes)
+            return new Response("Version changed", { status: 409 });
+          records = clean;
+          revision++;
+        }
+      } catch {
+        /* Preserve markers and retry photo cleanup on the next sync. */
+      }
+    }
     return Response.json(
       {
         account: key,
-        revision: row?.revision || 0,
-        records: row ? JSON.parse(row.payload) : null,
+        revision,
+        records,
       },
       { headers: { "Cache-Control": "no-store", Vary: "Cookie" } },
     );
   } catch (e) {
     return failure(e);
   }
+}
+
+export async function PUT(req: Request) {
+  return withAccountStorage(req, () => put(req));
+}
+
+export async function GET(req: Request) {
+  return withAccountStorage(req, () => get(req));
 }

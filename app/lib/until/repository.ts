@@ -1,3 +1,4 @@
+import { applyDeletions, permanentDelete } from "./deletion";
 import { normalizeCategories, normalizeLocations } from "./preferences";
 import { assertRealRecords } from "./demo";
 import { cloudPhoto } from "./image-metadata";
@@ -187,14 +188,14 @@ async function runSync(): Promise<SyncState> {
       if (!response.ok) throw Error("Cannot pull");
       const remote = (await response.json()) as Remote;
       await bindAccount(remote);
-      const base =
-        ((await db.get("state", `base:${remote.account}`)) as Records) ||
-        emptyRecords();
+      const storedBase = (await db.get("state", `base:${remote.account}`)) as
+        Records | undefined;
+      const base = storedBase || emptyRecords();
       const local = await readRecords();
       const cloud = remote.records || emptyRecords();
       let merged: Records;
       try {
-        merged = mergeRecords(base, local, cloud);
+        merged = mergeRecords(base, local, cloud, !!storedBase);
       } catch (e) {
         if (e instanceof SyncConflict) {
           await db.put(
@@ -219,6 +220,8 @@ async function runSync(): Promise<SyncState> {
         });
         if (put.status === 409) continue;
         if (!put.ok) throw Error("Remote save pending");
+        const saved = (await put.json()) as { records?: Records };
+        if (saved.records) merged = saved.records;
       }
       const tx = db.transaction("state", "readwrite");
       if ((await tx.store.get("activeAccount")) !== remote.account) {
@@ -229,7 +232,7 @@ async function runSync(): Promise<SyncState> {
         ((await tx.store.get(recordKey(remote.account))) as Records) ||
         emptyRecords();
       try {
-        const next = mergeRecords(local, current, merged);
+        const next = mergeRecords(local, current, merged, true);
         next.revision =
           current.revision + (recordsEqual(current, next) ? 0 : 1);
         await tx.store.put(next, recordKey(remote.account));
@@ -241,7 +244,10 @@ async function runSync(): Promise<SyncState> {
         await tx.store.delete(`conflict:${remote.account}`);
         await tx.done;
         announce();
-        if (recordsEqual(next, merged)) return "saved";
+        if (recordsEqual(next, merged)) {
+          await cleanupLocalPhotos();
+          return "saved";
+        }
       } catch (e) {
         try {
           tx.abort();
@@ -319,4 +325,58 @@ export async function exportRecords(includeRecovery = false) {
   a.download = "until-export.json";
   a.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+// Scan every account and recovery copy: the photo store is shared on this device.
+export async function cleanupLocalPhotos() {
+  const db = await database();
+  const tx = db.transaction(["state", "photos"], "readwrite");
+  const state = tx.objectStore("state");
+  const account = (await state.get("activeAccount")) as string | undefined;
+  const current = (await state.get(
+    account ? recordKey(account) : "records",
+  )) as Records | undefined;
+  for (const key of await state.getAllKeys()) {
+    if (
+      key !== `base:${account}` &&
+      key !== `conflict:${account}` &&
+      !key.startsWith(`recovery:${account}:`)
+    )
+      continue;
+    const value = await state.get(key);
+    const prune = (v: unknown) => {
+      if (!v || typeof v !== "object") return;
+      const record = v as Records;
+      if (Array.isArray(record.items) && Array.isArray(record.products)) {
+        const acknowledged = record.deletions;
+        record.deletions = current?.deletions;
+        applyDeletions(record);
+        // A queued local marker is not an acknowledged cloud deletion.
+        record.deletions = acknowledged;
+      } else for (const child of Object.values(v)) prune(child);
+    };
+    prune(value);
+    await state.put(value, key);
+  }
+  const live = new Set<string>();
+  for (const value of await state.getAll()) {
+    const visit = (v: unknown) => {
+      if (!v || typeof v !== "object") return;
+      const record = v as Partial<Records>;
+      if (Array.isArray(record.items) && Array.isArray(record.products))
+        for (const id of photoIds(record as Records)) live.add(id);
+      else for (const child of Object.values(v)) visit(child);
+    };
+    visit(value);
+  }
+  for (const id of await tx.objectStore("photos").getAllKeys())
+    if (!live.has(id)) await tx.objectStore("photos").delete(id);
+  await tx.done;
+}
+export async function deleteItem(id: string) {
+  const records = await mutate((r) => permanentDelete(r, id));
+  // The deletion transaction is already committed. Cleanup failures must not
+  // report that the item was kept; collection is retried after the next sync.
+  await cleanupLocalPhotos().catch(() => {});
+  return records;
 }

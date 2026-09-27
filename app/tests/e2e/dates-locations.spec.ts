@@ -69,17 +69,12 @@ test("keeps stored date wording, secondary optional control and brand during edi
   await nav(page, "All");
   await page.getByRole("button", { name: /View Category sample 0/ }).click();
   await expect(page.locator(".detail-countdown")).toContainText(
-    "Best before was",
+    "Expired",
   );
   await page.getByRole("button", { name: "Edit details", exact: true }).click();
   await expect(
-    page.getByLabel("What does the label say?", { exact: true }),
+    page.getByLabel("Date type", { exact: true }),
   ).toContainText("Best before");
-  await expect(
-    page.getByText("Best before is the quality date printed on the package.", {
-      exact: true,
-    }),
-  ).toBeVisible();
   await expandSection(page, "More details");
   await expect(page.getByLabel("Brand", { exact: true })).toHaveAttribute(
     "placeholder",
@@ -95,12 +90,12 @@ test("keeps stored date wording, secondary optional control and brand during edi
   await page.getByRole("button", { name: "Close", exact: true }).click();
   await page.getByRole("button", { name: "Add item", exact: true }).click();
   await expect(
-    page.getByLabel("What does the label say?", { exact: true }),
+    page.getByLabel("Date type", { exact: true }),
   ).not.toBeVisible();
   await expect(page.getByLabel("Printed date", { exact: true })).toBeVisible();
-  await page.locator(".date-wording summary").click();
+  await expandSection(page, "More details");
   await expect(
-    page.getByLabel("What does the label say?", { exact: true }),
+    page.getByLabel("Date type", { exact: true }),
   ).toContainText("Unspecified");
   await page
     .getByLabel("Product name *", { exact: true })
@@ -224,7 +219,7 @@ test("distinguishes category placeholders and emphasizes passed dates across fou
         await expired.evaluate((el) => getComputedStyle(el).borderTopWidth),
       ).toBe("4px");
       await expect(
-        page.getByText(/Recorded date was.*ago/).first(),
+        page.getByText(/Expired.*ago/).first(),
       ).toBeVisible();
       if (width === 1440) {
         await page

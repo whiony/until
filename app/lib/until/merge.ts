@@ -1,3 +1,4 @@
+import { deletionBranches } from "./deletion";
 import { normalizeCategories, normalizeLocations } from "./preferences";
 import { emptyRecords, type Records } from "./domain";
 export class SyncConflict extends Error {
@@ -24,7 +25,19 @@ export function mergeRecords(
   base: Records,
   local: Records,
   remote: Records,
+  hasBaseline = !!(base.items.length || base.products.length),
 ): Records {
+  if (
+    (local.deletionEpoch || 0) < (remote.deletionEpoch || 0) &&
+    !hasBaseline &&
+    (local.items.length || local.products.length)
+  )
+    throw new SyncConflict([
+      "deletion epoch: stale copy has no reconciliation baseline",
+    ]);
+  const branches = deletionBranches(base, local, remote);
+  local = branches.local;
+  remote = branches.remote;
   const conflicts: string[] = [];
   function merge<T>(
     b: T | undefined,
@@ -55,6 +68,8 @@ export function mergeRecords(
   const result = {
     ...emptyRecords(),
     revision: local.revision,
+    deletionEpoch: branches.epoch || undefined,
+    deletions: branches.deletions.length ? branches.deletions : undefined,
     products: entities("products"),
     items: entities("items"),
     settings: {
@@ -118,6 +133,8 @@ export const recordsEqual = (a: Records, b: Records) =>
     {
       ...a,
       revision: 0,
+      deletionEpoch: a.deletionEpoch || 0,
+      deletions: a.deletions || [],
       settings: {
         ...a.settings,
         theme: a.settings.theme || "green",
@@ -128,6 +145,8 @@ export const recordsEqual = (a: Records, b: Records) =>
     {
       ...b,
       revision: 0,
+      deletionEpoch: b.deletionEpoch || 0,
+      deletions: b.deletions || [],
       settings: {
         ...b.settings,
         theme: b.settings.theme || "green",

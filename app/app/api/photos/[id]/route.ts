@@ -1,3 +1,6 @@
+import { withAccountStorage } from "@/lib/until/storage-lock";
+import { database } from "@/lib/until/server";
+import { retiredPhotoIds } from "@/lib/until/deletion";
 import { env } from "cloudflare:workers";
 import { cloudPhoto } from "@/lib/until/image-metadata";
 import {
@@ -26,10 +29,16 @@ function imageType(b: Uint8Array) {
     return "image/webp";
   return "";
 }
-export async function PUT(req: Request, c: Context) {
+async function put(req: Request, c: Context) {
   try {
     sameOrigin(req);
-    const { key } = await identity(req, c);
+    const { key, account, id } = await identity(req, c);
+    const row = await database()
+      .prepare("SELECT payload FROM account_records WHERE owner=?")
+      .bind(account)
+      .first<{ payload: string }>();
+    if (row && retiredPhotoIds(JSON.parse(row.payload)).includes(id))
+      return new Response("Photo retired", { status: 409 });
     const bytes = await limitedBody(req, 12 * 1024 * 1024);
     const type = imageType(bytes);
     if (!type || type !== req.headers.get("content-type"))
@@ -51,7 +60,7 @@ export async function PUT(req: Request, c: Context) {
     return failure(e);
   }
 }
-export async function GET(req: Request, c: Context) {
+async function get(req: Request, c: Context) {
   try {
     const { account, id, key } = await identity(req, c);
     let object = await env.BUCKET!.get(key);
@@ -80,6 +89,21 @@ export async function GET(req: Request, c: Context) {
         "X-Content-Type-Options": "nosniff",
       },
     });
+  } catch (e) {
+    return failure(e);
+  }
+}
+
+export async function PUT(req: Request, c: Context) {
+  return withAccountStorage(req, () => put(req, c));
+}
+
+export async function GET(req: Request, c: Context) {
+  try {
+    const { key } = await identity(req, c);
+    // Existing object reads do not mutate storage and can run concurrently.
+    if (await env.BUCKET!.head(key)) return get(req, c);
+    return withAccountStorage(req, () => get(req, c));
   } catch (e) {
     return failure(e);
   }

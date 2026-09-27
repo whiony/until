@@ -46,7 +46,7 @@ describe("editor validation", () => {
   it("uses day singular", () => {
     const i = demoRecords("2026-09-26").items[0];
     expect(countdown({ ...i, printedDate: "2026-09-25" }, "2026-09-26")).toBe(
-      "Best before was 1 day ago",
+      "Expired 1 day ago",
     );
   });
 });

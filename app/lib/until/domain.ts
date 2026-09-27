@@ -35,6 +35,7 @@ export type Item = {
   status: "active" | "used" | "discarded";
   // Present only when a use/discard action was actually recorded.
   completedAt?: string;
+  dateAcknowledgement?: string;
   createdAt: string;
   updatedAt: string;
   schemaVersion: 1;
@@ -57,6 +58,8 @@ export type Settings = {
 export type Records = {
   schemaVersion: 1;
   revision: number;
+  deletionEpoch?: number;
+  deletions?: import("./deletion").Deletion[];
   products: Product[];
   items: Item[];
   settings: Settings;
@@ -179,11 +182,7 @@ export function countdown(i: Item, now = today()) {
   const neutral =
     i.dateKind === "unspecified" && deadline(i).controls === "printed date";
   return n < 0
-    ? neutral
-      ? `Recorded date was ${-n} ${n === -1 ? "day" : "days"} ago`
-      : best
-        ? `Best before was ${-n} ${n === -1 ? "day" : "days"} ago`
-        : `Expired ${-n} ${n === -1 ? "day" : "days"} ago`
+    ? `Expired ${-n} ${n === -1 ? "day" : "days"} ago`
     : n === 0
       ? neutral
         ? "Recorded date is today"
@@ -295,4 +294,11 @@ export function historyDate(i: Item) {
   if (!i.completedAt) return "";
   const date = new Date(i.completedAt);
   return Number.isNaN(+date) ? "" : displayDate(today(date));
+}
+
+// A confirmation is valid only for this warning's two calendar values.
+export function dateWarningKey(i: Item) {
+  return i.printedDate && i.openedDate && i.printedDate < i.openedDate
+    ? `${i.printedDate}/${i.openedDate}`
+    : "";
 }

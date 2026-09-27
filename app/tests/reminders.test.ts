@@ -66,16 +66,16 @@ it("deduplicates daily digests within accounts and respects local time, quiet ho
   r.settings.notifications.requested = false;
   expect(reminderDigest("a", r, now)).toBeNull();
 });
-it("keeps timezone calendars correct across DST and never labels unknown wording as expired", () => {
+it("keeps timezone calendars correct across DST and uses concise tracked status independently of label wording", () => {
   const r = records();
   r.items[0].printedDate = "2026-10-26";
   expect(reminderDigest("a", r, new Date("2026-10-25T07:59:00Z"))).toBeNull();
   expect(reminderDigest("a", r, new Date("2026-10-25T08:01:00Z"))?.date).toBe(
     "2026-10-25",
   );
-  expect(countdown(item, "2026-10-01")).toBe("Recorded date was 2 days ago");
+  expect(countdown(item, "2026-10-01")).toBe("Expired 2 days ago");
   expect(countdown({ ...item, dateKind: "best before" }, "2026-10-01")).toBe(
-    "Best before was 2 days ago",
+    "Expired 2 days ago",
   );
   expect(countdown({ ...item, dateKind: "use by" }, "2026-10-01")).toBe(
     "Expired 2 days ago",

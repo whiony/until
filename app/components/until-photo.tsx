@@ -26,6 +26,7 @@ export function Photo({
     let active = true;
     let objectUrl = "";
     const load = async () => {
+      if (objectUrl) return; // Photo IDs and draft blobs are immutable.
       if (id === "demo:yogurt") {
         setUrl("/demo/yogurt.png");
         return;

@@ -7,6 +7,7 @@ export function useVisualViewport() {
     const root = document.documentElement;
     let baseline = Math.max(viewport?.height || 0, innerHeight);
     let frame = 0;
+    let width = innerWidth;
     let keyboardWasOpen = false;
     let editor: Element | null = null;
     const update = () => {
@@ -24,7 +25,11 @@ export function useVisualViewport() {
         );
       const height = viewport?.height || innerHeight;
       const top = viewport?.offsetTop || 0;
-      if (!typing && !keyboardWasOpen) baseline = Math.max(height, innerHeight);
+      if (width !== innerWidth) {
+        width = innerWidth;
+        baseline = Math.max(height, innerHeight);
+      } else if (!typing && !keyboardWasOpen)
+        baseline = Math.max(baseline, height, innerHeight);
       const layoutHeight = Math.max(baseline, innerHeight);
       // Blur precedes the keyboard's closing animation on iOS. Keep its geometry
       // until the viewport expands, even when focus has moved to Done.

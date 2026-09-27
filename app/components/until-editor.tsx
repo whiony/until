@@ -1,4 +1,5 @@
 "use client";
+import { dateWarningKey } from "@/lib/until/domain";
 import { DateKindField } from "./until-date-kind";
 import { categoryNames, locationNames } from "@/lib/until/preferences";
 import { useState, useCallback, useRef } from "react";
@@ -176,12 +177,18 @@ export function Editor({
     labelFile = useRef<HTMLInputElement>(null);
   const [dateArea, setDateArea] = useState<"whole" | "top" | "bottom">("whole");
   const [originalProduct, setOriginalProduct] = useState<Blob | null>(null);
-  const [ack, setAck] = useState(false);
+  const [ackKey, setAckKey] = useState(
+    item?.dateAcknowledgement || (item ? dateWarningKey(item) : ""),
+  );
+  const ack = !!dateWarningKey(group) && ackKey === dateWarningKey(group);
+  const setAck = (checked: boolean) => {
+    setAckKey(checked ? dateWarningKey(group) : "");
+    setIssue(null);
+  };
   const p = (patch: Partial<Product>) =>
     setProduct((v) => ({ ...v, ...patch }));
   const g = (patch: Partial<Item>) => {
     setGroup((v) => ({ ...v, ...patch }));
-    setAck(false);
   };
   async function lookup(code: string) {
     setError("");
@@ -315,7 +322,12 @@ export function Editor({
       setBusy(true);
       await onSave({
         product: { ...product, name: product.name.trim(), updatedAt: stamp() },
-        item: { ...group, productId: product.id, updatedAt: stamp() },
+        item: {
+          ...group,
+          dateAcknowledgement: ack ? dateWarningKey(group) : undefined,
+          productId: product.id,
+          updatedAt: stamp(),
+        },
         photos,
         editing: !!item,
         expectedProductVersion: productVersion,
@@ -716,10 +728,31 @@ export function Editor({
                   error={fieldError("printed-date")}
                 />
               </div>
-              <DateKindField
-                value={group.dateKind}
-                onChange={(dateKind) => g({ dateKind })}
-              />
+              {group.dateKind !== "unspecified" && (
+                <p className="muted date-kind-caption">
+                  {group.dateKind === "best before" ? "Best before" : "Use by"}
+                </p>
+              )}
+              {warning && (
+                <div className="notice">
+                  <p>
+                    The printed deadline is earlier than the opening date. It
+                    will still control the countdown.
+                  </p>
+                  <div
+                    id="date-confirmation"
+                    tabIndex={-1}
+                    aria-describedby="date-confirmation-error"
+                  >
+                    {fieldError("date-confirmation")}
+                    <Check
+                      label="I checked these dates"
+                      checked={ack}
+                      onChange={setAck}
+                    />
+                  </div>
+                </div>
+              )}
             </section>
             <Disclosure
               title="After opening"
@@ -830,6 +863,10 @@ export function Editor({
                   customValues={[]}
                 />
               </div>
+              <DateKindField
+                value={group.dateKind}
+                onChange={(dateKind) => g({ dateKind })}
+              />
               <div className="form-grid">
                 <EditableChoice
                   label="Category"
@@ -903,26 +940,6 @@ export function Editor({
                 />
               </div>
             </Disclosure>
-            {warning && (
-              <div className="notice">
-                <p>
-                  The printed deadline is earlier than the opening date. It will
-                  still control the countdown.
-                </p>
-                <div
-                  id="date-confirmation"
-                  tabIndex={-1}
-                  aria-describedby="date-confirmation-error"
-                >
-                  {fieldError("date-confirmation")}
-                  <Check
-                    label="I checked these dates"
-                    checked={ack}
-                    onChange={setAck}
-                  />
-                </div>
-              </div>
-            )}
 
             {info && (
               <p role="status" className="notice">
@@ -964,7 +981,10 @@ export function Editor({
             </AlertDialogDescription>
             <AlertDialogFooter>
               <AlertDialogCancel>Keep editing</AlertDialogCancel>
-              <AlertDialogAction onClick={onClose}>
+              <AlertDialogAction
+                className="destructive-action"
+                onClick={onClose}
+              >
                 Discard changes
               </AlertDialogAction>
             </AlertDialogFooter>

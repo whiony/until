@@ -2657,3 +2657,40 @@ h1 {
 @media (max-width: 760px) { .date-section > .form-grid > .field, .inline-date > .form-grid > .field { max-width: none; } }
 .detail-countdown.used { color: #5c7034; }
 .detail-countdown.discarded { color: #88483f; }
+
+/* Form and review refinements share the same content boundary. */
+.date-section > .form-grid > .field, .inline-date > .form-grid > .field { max-width: none; }
+.date-kind-caption { margin: 4px 0 12px; font-size: 13px; }
+:root { --upcoming-ink: #a24024; }
+.item-card.today .countdown, .item-card.urgent .countdown { font-weight: 750; }
+.detail-overview { grid-template-columns: auto minmax(0,1fr); align-items: start; gap: 20px; }
+.detail-overview > .photo:not(:has(img)) { justify-self: start; }
+.editor .label-recognition { display: flex; flex-direction: column; align-items: stretch; gap: 12px; margin-top: 16px; }
+.editor .label-recognition > button { align-self: flex-start; }
+.editor .label-recognition > p { margin: 0; line-height: 1.5; }
+.editor .label-recognition .recognition-options { margin: 0; }
+button.destructive-action, [data-slot=alert-dialog-action].destructive-action { background: var(--passed-ink); border-color: var(--passed-ink); color: #fff; }
+button.destructive-action:hover { background: #7c271f; }
+button.destructive-action:focus-visible { outline: 3px solid var(--ring); outline-offset: 3px; }
+.custom-cancel { margin-top: 8px; font-size: 13px; }
+@media (max-width:760px) {
+ .topbar { height: calc(44px + var(--safe-top)); padding-bottom: 0; }
+ .workspace { padding-top: calc(44px + var(--safe-top)); }
+ .app-shell::before { height: calc(44px + var(--safe-top)); }
+ .topbar .brand { font-size: 28px; min-height: 44px; }
+ .topbar .brand-letter { width: 28px; height: 30px; font-size: 28px; border-radius: 9px 9px 3px 9px; }
+ .topbar button { min-height: 44px; }
+ .crop-dialog .form-footer { display: grid; grid-template-columns: 1fr; gap: 8px; padding-bottom: max(12px,env(safe-area-inset-bottom)); }
+ .crop-dialog .form-footer button { width: 100%; min-height: 44px; white-space: nowrap; }
+ .crop-dialog .form-footer .primary { grid-row: 1; }
+ .detail-overview { grid-template-columns: auto minmax(0,1fr); gap: 14px; }
+}
+@media (max-width:380px) {
+ .detail-overview { grid-template-columns: minmax(0,1fr); }
+ .detail-overview > .photo { justify-self: start; }
+}
+
+.detail-actions .edit-details, .detail-actions .delete-item { grid-column: 1 / -1; }
+.detail-actions .delete-item { color: var(--passed-ink); }
+
+.detail-actions.historical-actions button { grid-column: 1 / -1; }

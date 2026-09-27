@@ -29,6 +29,15 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogCancel,
+  AlertDialogAction,
+} from "@/components/ui/alert-dialog";
 import { Empty, EmptyTitle, EmptyDescription } from "@/components/ui/empty";
 import { Toaster } from "@/components/ui/sonner";
 import { toast } from "sonner";
@@ -59,6 +68,7 @@ import {
   mutate,
   syncRecords,
   exportRecords,
+  deleteItem,
   type SyncState,
 } from "@/lib/until/repository";
 import { notificationService } from "@/lib/until/notifications";
@@ -70,6 +80,7 @@ export default function UntilApp() {
     document.documentElement.dataset.theme =
       realRecords.settings.theme || "green";
   }, [realRecords.settings.theme]);
+  const [deleteTarget, setDeleteTarget] = useState<Item | null>(null);
   const [ready, setReady] = useState(false);
   const [loadError, setLoadError] = useState("");
   const [view, setView] = useState<View>("soon");
@@ -346,13 +357,24 @@ export default function UntilApp() {
                   <button
                     disabled={busy || demo || i.quantity < 1}
                     onClick={() =>
-                      action(
-                        (r) => completeUnit(r, i.id, "used"),
-                        "One unit marked used",
-                      )
+                      urgency(i, records.settings.soonDays, now) === "expired"
+                        ? setDetail(i.id)
+                        : action(
+                            (r) => completeUnit(r, i.id, "used"),
+                            "One unit moved to History as used",
+                          )
                     }
                   >
-                    <Check size={16} /> Mark one as used
+                    {urgency(i, records.settings.soonDays, now) ===
+                    "expired" ? (
+                      <>
+                        <Search size={16} /> Review item
+                      </>
+                    ) : (
+                      <>
+                        <Check size={16} /> Mark one as used
+                      </>
+                    )}
                   </button>
                 ) : (
                   <button
@@ -1012,16 +1034,24 @@ export default function UntilApp() {
                 Facts data: ODbL; images: CC BY-SA.
               </p>
             )}
-            <fieldset className="detail-actions" disabled={demo}>
+            <fieldset
+              className={`detail-actions ${selected.status !== "active" ? "historical-actions" : ""}`}
+              disabled={demo}
+            >
               {selected.status === "active" && (
                 <>
                   <button
-                    className="primary"
+                    className={
+                      urgency(selected, records.settings.soonDays, now) ===
+                      "expired"
+                        ? ""
+                        : "primary"
+                    }
                     disabled={busy || demo}
                     onClick={() =>
                       action(
                         (r) => completeUnit(r, selected.id, "used"),
-                        "One unit marked used",
+                        "One unit moved to History as used",
                       )
                     }
                   >
@@ -1045,7 +1075,7 @@ export default function UntilApp() {
                     onClick={() =>
                       action(
                         (r) => completeUnit(r, selected.id, "discarded"),
-                        "One unit marked discarded",
+                        "One unit moved to History as discarded",
                       )
                     }
                   >
@@ -1058,16 +1088,67 @@ export default function UntilApp() {
                 {selected.status === "active" ? "Add another" : "Add again"}
               </button>
               <button
+                className="edit-details"
                 onClick={() =>
                   setEditor({ product: selectedProduct, item: selected })
                 }
               >
                 Edit details
               </button>
+              <button
+                className="delete-item"
+                disabled={busy || demo}
+                onClick={() => setDeleteTarget(selected)}
+              >
+                <Trash2 /> Delete permanently
+              </button>
             </fieldset>
           </DialogContent>
         </Dialog>
       )}
+      <AlertDialog
+        open={!!deleteTarget}
+        onOpenChange={(open) => {
+          if (!open && !busy) setDeleteTarget(null);
+        }}
+      >
+        <AlertDialogContent className="discard-dialog">
+          <AlertDialogTitle>Delete this item permanently?</AlertDialogTitle>
+          <AlertDialogDescription>
+            This permanently removes this record ({deleteTarget?.quantity || 1}{" "}
+            units). Unshared photos will also be deleted. Other items are kept.
+            Offline deletions sync when you reconnect.
+          </AlertDialogDescription>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={busy}>Keep item</AlertDialogCancel>
+            <AlertDialogAction
+              className="destructive-action"
+              disabled={busy}
+              onClick={async (e) => {
+                e.preventDefault();
+                if (!deleteTarget || busy || demo) return;
+                setBusy(true);
+                try {
+                  await deleteItem(deleteTarget.id);
+                  await refresh();
+                  setDetail(null);
+                  setDeleteTarget(null);
+                  toast.success("Record permanently deleted. Sync pending.");
+                  void synchronize();
+                } catch {
+                  toast.error(
+                    "Could not delete. Your item is kept; please try again.",
+                  );
+                } finally {
+                  setBusy(false);
+                }
+              }}
+            >
+              Delete permanently
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }

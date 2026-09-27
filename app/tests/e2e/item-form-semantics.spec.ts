@@ -67,7 +67,7 @@ test("rendered item controls have stable semantics, one form owner and only one 
   }
   // Radix renders real, visually hidden selects: audit those, not just trigger props.
   for (const [label, name] of [
-    ["What does the label say?", "until-item-date-kind"],
+    ["Date type", "until-item-date-kind"],
     ["Duration unit", "until-opening-duration-unit"],
     ["Location", "until-item-location"],
     ["Category", "until-product-category"],

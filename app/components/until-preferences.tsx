@@ -229,7 +229,9 @@ function NameManagement({
               </button>
               <button
                 type="button"
-                className="primary"
+                className={
+                  edit.mode === "delete" ? "destructive-action" : "primary"
+                }
                 disabled={
                   busy ||
                   (edit.mode === "delete" && !chosen) ||
