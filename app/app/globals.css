@@ -531,6 +531,10 @@ small {
 .expired .countdown {
   color: #8c5047;
 }
+.item-card.urgent,
+.item-card.today {
+  border-top: 3px solid var(--upcoming-ink);
+}
 .expired {
   background: #fcf8f3;
 }
@@ -2616,11 +2620,11 @@ h1 {
 }
 .item-card.expired {
   background: var(--passed-surface);
-  border-color: var(--passed-ink);
+  border-top: 4px solid var(--passed-ink);
 }
 .item-card.expired .countdown,
 .detail .detail-countdown.expired { color: var(--passed-ink); font-weight: 800; }
-.item-card.urgent, .item-card.today { border-color: var(--upcoming-ink); }
+.item-card.urgent, .item-card.today { border-top-color: var(--upcoming-ink); }
 .item-card.urgent .countdown, .item-card.today .countdown,
 .detail .detail-countdown.urgent, .detail .detail-countdown.today { color: var(--upcoming-ink); }
 .detail.detail-expired { background: var(--passed-surface) !important; color: var(--foreground); border-top: 4px solid var(--passed-ink); }
@@ -2689,16 +2693,10 @@ button.destructive-action:focus-visible { outline: 3px solid var(--ring); outlin
 .detail-actions.historical-actions button { grid-column: 1 / -1; }
 
 /* Card targets are siblings: open details, or act on one unit. */
-/* A single even outline follows the rounded card, including urgent variants. */
-.item-card { --card-surface: var(--card); background: var(--card-surface); transition: background-color .15s ease, box-shadow .15s ease; }
-.item-card.expired { --card-surface: var(--passed-surface); }
 .card-main:focus-visible { outline: none; }
 .item-card:has(.card-main:focus-visible) { outline: 3px solid var(--primary); outline-offset: 3px; }
-@media (hover: hover) and (pointer: fine) {
- .item-card:hover { background: color-mix(in srgb, var(--primary) 5%, var(--card-surface)); box-shadow: 0 3px 12px color-mix(in srgb, var(--primary) 14%, transparent); }
- .card-bottom button:not(:disabled):hover { background: color-mix(in srgb, var(--primary) 10%, transparent); }
-}
-.card-bottom button { border-radius: 8px; padding: 8px 10px; min-height: 44px; transition: background-color .15s ease; }
+.card-bottom button { border-radius: 8px; padding: 8px 10px; min-height: 44px; transition: color .15s ease; }
+.card-bottom button:not(:disabled):hover { background: transparent; color: var(--foreground); }
 .card-bottom button[data-state="open"] { background: color-mix(in srgb, var(--primary) 8%, transparent); }
 .card-bottom button:active { background: color-mix(in srgb, var(--primary) 14%, transparent); }
 .card-bottom button:focus-visible, .packaging-preview:focus-visible, .photo-pan:focus-visible { outline: 3px solid var(--primary); outline-offset: 2px; }
@@ -2755,6 +2753,6 @@ button.destructive-action:focus-visible { outline: 3px solid var(--ring); outlin
 .photo-viewer.modal { z-index: 90; }
 .photo-viewer.modal { top: calc((100dvh + var(--safe-top, 0px) - var(--safe-bottom, 0px)) / 2); }
 
-/* Match the wordmark dot without changing the header artwork. */
+/* A round dot follows the metadata text size and baseline. */
 .item-metadata { overflow-wrap: anywhere; }
-.metadata-separator { color: #6f862e; font-size: 1.25em; font-weight: 900; margin-inline: .18em; line-height: 0; vertical-align: baseline; }
+.metadata-separator { display: inline-block; width: .3em; height: .3em; border-radius: 50%; background: #6f862e; color: transparent; overflow: hidden; margin-inline: .05em; vertical-align: .2em; }

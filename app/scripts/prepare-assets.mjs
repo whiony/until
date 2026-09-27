@@ -35,7 +35,7 @@ await fs.copyFile(
 
 // Versioned URLs bypass previously cached Home Screen assets. Root aliases support iOS fallback discovery.
 for (const name of ["apple-touch-icon", "icon-192", "icon-512"])
-  await fs.copyFile(`public/icons/${name}.png`, `public/icons/${name}-v6.png`);
+  await fs.copyFile(`public/icons/${name}.png`, `public/icons/${name}-v7.png`);
 await fs.copyFile(
   "public/icons/apple-touch-icon.png",
   "public/apple-touch-icon.png",
@@ -57,14 +57,14 @@ for (const size of [16, 32])
     .png()
     .toFile(`public/favicon-${size}.png`);
 
-await fs.copyFile("public/favicon.svg", "public/favicon-v6.svg");
+await fs.copyFile("public/favicon.svg", "public/favicon-v7.svg");
 for (const size of [16, 32])
   await fs.copyFile(
     `public/favicon-${size}.png`,
-    `public/favicon-${size}-v6.png`,
+    `public/favicon-${size}-v7.png`,
   );
 for (const size of [152, 167])
   await fs.copyFile(
     `public/icons/apple-touch-icon-${size}.png`,
-    `public/icons/apple-touch-icon-${size}-v6.png`,
+    `public/icons/apple-touch-icon-${size}-v7.png`,
   );

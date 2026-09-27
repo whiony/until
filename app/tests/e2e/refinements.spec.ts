@@ -234,7 +234,7 @@ test("PWA metadata serves opaque versioned icons at correct sizes and types", as
     .locator('link[rel="apple-touch-icon"]')
     .first()
     .getAttribute("href");
-  expect(apple).toContain("-v6.png");
+  expect(apple).toContain("-v7.png");
   const icon = await page.request.get(apple!);
   expect(icon.status()).toBe(200);
   expect(icon.headers()["content-type"]).toContain("image/png");
@@ -246,7 +246,7 @@ test("PWA metadata serves opaque versioned icons at correct sizes and types", as
     .toBuffer({ resolveWithObject: true });
   if (pixels.info.channels === 4) expect(pixels.data[3]).toBe(255);
   const manifest = await (
-    await page.request.get("/manifest.webmanifest?v=6")
+    await page.request.get("/manifest.webmanifest?v=7")
   ).json();
   for (const entry of manifest.icons) {
     const response = await page.request.get(entry.src);

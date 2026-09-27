@@ -1,6 +1,6 @@
-# App icon update (v6)
+# App icon update (v7)
 
-The standalone U is lifted six units in its 100-unit artwork for optical centering. The website header wordmark is unchanged. `prepare-assets.mjs` generates opaque Apple (152/167/180), PWA (192/512), and favicon (16/32) PNGs from that artwork. Metadata and the manifest use new v6 filenames; old immutable filenames are retained so existing installations can finish using their older service worker. Root Apple aliases also contain the new artwork.
+The standalone U is lifted three units in its 100-unit artwork, halfway between the low v5 letter and the high v6 letter. Optical placement was compared at Home Screen (60px) and browser-tab (16/32px) sizes, rather than judged solely by its bounding box. The website header wordmark is unchanged. `prepare-assets.mjs` generates opaque Apple (152/167/180), PWA (192/512), and favicon (16/32) PNGs from that artwork. Metadata and the manifest use new v7 filenames; old immutable filenames are retained so existing installations can finish using their older service worker. Root Apple aliases also contain the new artwork.
 
 New filenames bypass browser and service-worker entries for the old icon URLs. The manifest retains its app ID, scope, and start URL. The normal service-worker activation lifecycle is preserved so an update does not interrupt an open editor.
 

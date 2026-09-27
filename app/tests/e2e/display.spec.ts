@@ -108,10 +108,10 @@ test("public application assets have current U references and correct image byte
   request,
 }) => {
   const html = await (await request.get("/")).text();
-  expect(html).toContain("/favicon-v6.svg");
-  expect(html).toContain("/icons/apple-touch-icon-v6.png");
+  expect(html).toContain("/favicon-v7.svg");
+  expect(html).toContain("/icons/apple-touch-icon-v7.png");
   const manifest = await (
-    await request.get("/manifest.webmanifest?v=6")
+    await request.get("/manifest.webmanifest?v=7")
   ).json();
   for (const icon of manifest.icons) {
     const response = await request.get(icon.src);
@@ -122,7 +122,7 @@ test("public application assets have current U references and correct image byte
       Number(icon.sizes.split("x")[0]),
     );
   }
-  const svg = await (await request.get("/favicon-v6.svg")).text();
+  const svg = await (await request.get("/favicon-v7.svg")).text();
   expect(svg).toContain("<path");
   expect(svg).not.toContain("<circle");
 });
