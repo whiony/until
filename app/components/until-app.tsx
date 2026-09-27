@@ -1,5 +1,6 @@
 "use client";
 import { categoryNames, locationNames } from "@/lib/until/preferences";
+import { ItemMetadata } from "./until-item-metadata";
 import { AppearanceCategories } from "./until-preferences";
 import { InlineDate } from "./until-inline-date";
 import { demoRecords, itemCount, units } from "@/lib/until/demo";
@@ -288,8 +289,11 @@ export default function UntilApp() {
                 <Photo id={p.photoId} category={p.category} name={p.name} />
                 <div className="card-copy">
                   <div className="eyebrow">
-                    {[p.category, i.location].filter(Boolean).join(" · ") ||
-                      "Unclassified"}
+                    <ItemMetadata
+                      category={p.category}
+                      location={i.location}
+                      fallback="Unclassified"
+                    />
                   </div>
                   <h3>{p.name}</h3>
                   {demo && <span className="demo-tag">Demo</span>}
@@ -899,13 +903,11 @@ export default function UntilApp() {
                   {demo ? " · Demo" : ""}
                 </DialogTitle>
                 <DialogDescription>
-                  {[
-                    selectedProduct.brand,
-                    selectedProduct.category,
-                    selected.location,
-                  ]
-                    .filter(Boolean)
-                    .join(" · ")}
+                  <ItemMetadata
+                    brand={selectedProduct.brand}
+                    category={selectedProduct.category}
+                    location={selected.location}
+                  />
                 </DialogDescription>
                 {selectedProduct.size && (
                   <p className="muted">{selectedProduct.size}</p>

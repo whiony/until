@@ -531,10 +531,6 @@ small {
 .expired .countdown {
   color: #8c5047;
 }
-.urgent,
-.today {
-  border-top: 3px solid #b94c3a;
-}
 .expired {
   background: #fcf8f3;
 }
@@ -2271,9 +2267,6 @@ h1 {
   background: transparent;
   border-radius: 8px;
 }
-.card-bottom button:not(:disabled):hover {
-  background: var(--secondary);
-}
 .card-bottom button:not(:disabled):active {
   background: var(--accent);
 }
@@ -2623,11 +2616,11 @@ h1 {
 }
 .item-card.expired {
   background: var(--passed-surface);
-  border-top: 4px solid var(--passed-ink);
+  border-color: var(--passed-ink);
 }
 .item-card.expired .countdown,
 .detail .detail-countdown.expired { color: var(--passed-ink); font-weight: 800; }
-.item-card.urgent, .item-card.today { border-top-color: var(--upcoming-ink); }
+.item-card.urgent, .item-card.today { border-color: var(--upcoming-ink); }
 .item-card.urgent .countdown, .item-card.today .countdown,
 .detail .detail-countdown.urgent, .detail .detail-countdown.today { color: var(--upcoming-ink); }
 .detail.detail-expired { background: var(--passed-surface) !important; color: var(--foreground); border-top: 4px solid var(--passed-ink); }
@@ -2696,12 +2689,17 @@ button.destructive-action:focus-visible { outline: 3px solid var(--ring); outlin
 .detail-actions.historical-actions button { grid-column: 1 / -1; }
 
 /* Card targets are siblings: open details, or act on one unit. */
-.card-main { transition: background-color .15s ease; }
-.card-main:hover { background: color-mix(in srgb, var(--primary) 4%, transparent); }
-.card-main:active { background: color-mix(in srgb, var(--primary) 8%, transparent); }
-.card-main:focus-visible { outline: 3px solid var(--primary); outline-offset: -4px; border-radius: inherit; }
+/* A single even outline follows the rounded card, including urgent variants. */
+.item-card { --card-surface: var(--card); background: var(--card-surface); transition: background-color .15s ease, box-shadow .15s ease; }
+.item-card.expired { --card-surface: var(--passed-surface); }
+.card-main:focus-visible { outline: none; }
+.item-card:has(.card-main:focus-visible) { outline: 3px solid var(--primary); outline-offset: 3px; }
+@media (hover: hover) and (pointer: fine) {
+ .item-card:hover { background: color-mix(in srgb, var(--primary) 5%, var(--card-surface)); box-shadow: 0 3px 12px color-mix(in srgb, var(--primary) 14%, transparent); }
+ .card-bottom button:not(:disabled):hover { background: color-mix(in srgb, var(--primary) 10%, transparent); }
+}
 .card-bottom button { border-radius: 8px; padding: 8px 10px; min-height: 44px; transition: background-color .15s ease; }
-.card-bottom button:hover, .card-bottom button[data-state="open"] { background: color-mix(in srgb, var(--primary) 8%, transparent); }
+.card-bottom button[data-state="open"] { background: color-mix(in srgb, var(--primary) 8%, transparent); }
 .card-bottom button:active { background: color-mix(in srgb, var(--primary) 14%, transparent); }
 .card-bottom button:focus-visible, .packaging-preview:focus-visible, .photo-pan:focus-visible { outline: 3px solid var(--primary); outline-offset: 2px; }
 .card-copy { padding-right: 0; }
@@ -2739,7 +2737,8 @@ button.destructive-action:focus-visible { outline: 3px solid var(--ring); outlin
 .photo-zoom-slider { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; font-size: 14px; }
 .photo-zoom-slider input { width: 100%; min-width: 0; }
 @media (max-width: 760px) {
-  .detail .detail-actions { grid-template-columns: minmax(0, 1fr); gap: 8px; }
+  .detail .detail-actions { grid-template-columns: minmax(0, 1fr) auto; gap: 8px; align-items: stretch; }
+  .detail .detail-actions:not(.historical-actions) > button:first-child { grid-column: 1 / -1; }
   .detail .detail-actions.historical-actions { grid-template-columns: minmax(0, 1fr) auto; }
   .detail .detail-actions button { min-height: 44px; }
   .detail .detail-actions .actions-menu-trigger { grid-column: auto; }
@@ -2755,3 +2754,7 @@ button.destructive-action:focus-visible { outline: 3px solid var(--ring); outlin
 .detail .detail-actions button:last-child:nth-child(odd) { grid-column: auto; }
 .photo-viewer.modal { z-index: 90; }
 .photo-viewer.modal { top: calc((100dvh + var(--safe-top, 0px) - var(--safe-bottom, 0px)) / 2); }
+
+/* Match the wordmark dot without changing the header artwork. */
+.item-metadata { overflow-wrap: anywhere; }
+.metadata-separator { color: #6f862e; font-size: 1.25em; font-weight: 900; margin-inline: .18em; line-height: 0; vertical-align: baseline; }

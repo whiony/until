@@ -214,7 +214,7 @@ test("distinguishes category placeholders and emphasizes passed dates across fou
       );
       expect(
         await expired.evaluate((el) => getComputedStyle(el).borderTopWidth),
-      ).toBe("4px");
+      ).toBe("1px");
       await expect(page.getByText(/Expired.*ago/).first()).toBeVisible();
       if (width === 1440) {
         await page

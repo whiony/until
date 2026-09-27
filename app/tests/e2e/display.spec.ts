@@ -37,10 +37,15 @@ test("aligned grid, compact list, invariant mobile cards and expired details", a
   await expect(page.locator(".detail")).toHaveClass(/detail-expired/);
   await expect(page.locator(".detail")).toHaveCSS(
     "background-color",
-    await page
-      .locator(".item-card.expired")
-      .first()
-      .evaluate((el) => getComputedStyle(el).backgroundColor),
+    await page.evaluate(() => {
+      // Detail keeps the expired surface; the card may still be transitioning from hover.
+      const probe = document.createElement("div");
+      probe.style.backgroundColor = "var(--passed-surface)";
+      document.body.appendChild(probe);
+      const color = getComputedStyle(probe).backgroundColor;
+      probe.remove();
+      return color;
+    }),
   );
   await expect(page.locator(".detail dd")).toContainText([
     "best before",
@@ -103,10 +108,10 @@ test("public application assets have current U references and correct image byte
   request,
 }) => {
   const html = await (await request.get("/")).text();
-  expect(html).toContain("/favicon.svg?v=5");
-  expect(html).toContain("/apple-touch-icon.png?v=5");
+  expect(html).toContain("/favicon-v6.svg");
+  expect(html).toContain("/icons/apple-touch-icon-v6.png");
   const manifest = await (
-    await request.get("/manifest.webmanifest?v=5")
+    await request.get("/manifest.webmanifest?v=6")
   ).json();
   for (const icon of manifest.icons) {
     const response = await request.get(icon.src);
@@ -117,7 +122,7 @@ test("public application assets have current U references and correct image byte
       Number(icon.sizes.split("x")[0]),
     );
   }
-  const svg = await (await request.get("/favicon.svg?v=5")).text();
+  const svg = await (await request.get("/favicon-v6.svg")).text();
   expect(svg).toContain("<path");
   expect(svg).not.toContain("<circle");
 });

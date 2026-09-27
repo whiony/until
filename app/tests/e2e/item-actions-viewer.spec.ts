@@ -385,7 +385,7 @@ test("card hover/focus and compact detail hierarchy stay aligned across themes, 
             });
           await page.keyboard.press("Tab");
           await main.focus();
-          await expect(main).toHaveCSS("outline-style", "solid");
+          await expect(card).toHaveCSS("outline-style", "solid");
           await action.hover();
           await action.focus();
           const after = (await card.boundingBox())!;

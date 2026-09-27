@@ -401,7 +401,11 @@ test("mobile editor, keyboard-size viewport, crop and replacement survive reload
   const buttons = page.locator(".detail-actions button");
   const box0 = await buttons.nth(0).boundingBox(),
     box1 = await buttons.nth(1).boundingBox();
-  expect(box0!.width).toBeCloseTo(box1!.width, 0);
+  const more = (await buttons.nth(2).boundingBox())!;
+  expect(box0!.width).toBeGreaterThan(box1!.width);
+  expect(box1!.y).toBeCloseTo(more.y, 0);
+  expect(box1!.height).toBeCloseTo(more.height, 0);
+  expect(more.x + more.width).toBeCloseTo(box0!.x + box0!.width, 0);
   await expect(page.locator(".detail.modal")).toHaveCSS("opacity", "1");
   await page.screenshot({ path: "test-results/mobile-detail.png" });
   await detailAction(page, "Edit details");
