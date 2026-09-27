@@ -43,3 +43,11 @@ export async function setDate(page: Page, label: string, value: string) {
     })
     .click();
 }
+
+export async function detailAction(page: Page, name: string) {
+  await page
+    .locator(".detail")
+    .getByRole("button", { name: "More", exact: true })
+    .click();
+  await page.getByRole("menuitem", { name, exact: true }).click();
+}

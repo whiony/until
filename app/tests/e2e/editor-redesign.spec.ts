@@ -1,3 +1,4 @@
+import { detailAction } from "./editor-helpers";
 import { test, expect } from "@playwright/test";
 import { expandSection, setDate } from "./editor-helpers";
 test.beforeEach(async ({ context }) =>
@@ -64,7 +65,7 @@ test("optional dates commit only on day selection, clear explicitly, and name-on
   await page
     .getByRole("button", { name: "View Unclassified name only" })
     .click();
-  await page.getByRole("button", { name: "Edit details" }).click();
+  await detailAction(page, "Edit details");
   await expect(date).toHaveText("Add a date");
 });
 test("compact creation preserves values across help, disclosure, photos, keyboard-sized viewport and close warning", async ({

@@ -1,3 +1,4 @@
+import { detailAction } from "./editor-helpers";
 import { emptyRecords } from "../../lib/until/domain";
 import { test, expect, type Page } from "@playwright/test";
 import { expandSection } from "./editor-helpers";
@@ -83,7 +84,13 @@ test("mobile Add/Edit/Add another share a top edge and preserve bottom-field dra
   await page.setViewportSize({ width: 390, height: 844 });
   await page.addInitScript(() => {
     const viewport = new EventTarget();
-    Object.assign(viewport, { height: 844, offsetTop: 0, scale: 1 });
+    Object.assign(viewport, {
+      height: 844,
+      width: 390,
+      offsetTop: 0,
+      offsetLeft: 0,
+      scale: 1,
+    });
     Object.defineProperty(window, "visualViewport", {
       configurable: true,
       value: viewport,
@@ -102,12 +109,10 @@ test("mobile Add/Edit/Add another share a top edge and preserve bottom-field dra
       await page
         .getByRole("button", { name: "View Layout sample 2", exact: true })
         .click();
-      await page
-        .getByRole("button", {
-          name: path === "Edit item" ? "Edit details" : "Add another",
-          exact: true,
-        })
-        .click();
+      await detailAction(
+        page,
+        path === "Edit item" ? "Edit details" : "Add another",
+      );
     }
     const editor = page.locator(".editor");
     await expect(editor.locator('[data-slot="dialog-title"]')).toHaveText(path);
@@ -189,10 +194,7 @@ test("mobile Add/Edit/Add another share a top edge and preserve bottom-field dra
   await page
     .getByRole("button", { name: "View Layout sample 2", exact: true })
     .click();
-  await page
-    .locator(".detail")
-    .getByRole("button", { name: "Edit details", exact: true })
-    .click();
+  await detailAction(page, "Edit details");
   await page
     .getByLabel("Label photo", { exact: true })
     .setInputFiles("tests/fixtures/label.png");
@@ -200,10 +202,10 @@ test("mobile Add/Edit/Add another share a top edge and preserve bottom-field dra
   const detail = page.locator(".detail");
   await expect(detail.locator(".photo-label img")).toBeVisible();
   await detail
-    .getByRole("button", { name: "Edit details", exact: true })
+    .getByRole("button", { name: "More", exact: true })
     .scrollIntoViewIfNeeded();
   await expect(
-    detail.getByRole("button", { name: "Edit details", exact: true }),
+    detail.getByRole("button", { name: "More", exact: true }),
   ).toBeInViewport();
   const box = (await detail.boundingBox())!;
   expect(box.y).toBeGreaterThanOrEqual(59 + 16);

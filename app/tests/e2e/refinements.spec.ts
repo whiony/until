@@ -1,4 +1,4 @@
-import {expandSection,setDate} from "./editor-helpers";
+import { expandSection, setDate } from "./editor-helpers";
 import { test, expect, type Page } from "@playwright/test";
 import fs from "node:fs/promises";
 import sharp from "sharp";
@@ -38,10 +38,10 @@ test("demo is visibly isolated from real records, cloud, exports and reload", as
   await expect(page.getByText("Demo mode · read-only")).toBeVisible();
   await page.getByRole("tab", { name: /All items/ }).click();
   await expect(page.locator(".demo-tag")).toHaveCount(9);
-  await expect(
-    page.locator(".section-heading > span"),
-  ).toHaveCount(0);
-  await expect(page.getByRole("tab", {name: /All items/})).toContainText("16");
+  await expect(page.locator(".section-heading > span")).toHaveCount(0);
+  await expect(page.getByRole("tab", { name: /All items/ })).toContainText(
+    "16",
+  );
   await expect(
     page.getByRole("button", { name: "Add item", exact: true }),
   ).toBeDisabled();
@@ -49,7 +49,7 @@ test("demo is visibly isolated from real records, cloud, exports and reload", as
     .getByRole("button", { name: "View Greek yogurt", exact: true })
     .click();
   await expect(
-    page.getByRole("button", { name: "Edit details" }),
+    page.getByRole("button", { name: "More", exact: true }),
   ).toBeDisabled();
   await page.getByRole("button", { name: "Close", exact: true }).click();
   await page.getByRole("tab", { name: "Settings", exact: true }).click();
@@ -160,7 +160,7 @@ test("invalid submission focuses the relevant field and retains typed name and p
     .click();
   await page.getByRole("tab", { name: /All items/ }).click();
   await expect(
-    page.locator(".footer-quantity").filter({hasText: "×2 unopened"}),
+    page.locator(".footer-quantity").filter({ hasText: "×2 unopened" }),
   ).toBeVisible();
 });
 test("real product OCR suggests text only after explicit action and confirmation", async ({
@@ -269,7 +269,7 @@ test("empty states, filtered quantity counts, summary and toolbar placement rema
   await page.getByRole("tab", { name: /All items/ }).click();
   await page.getByLabel("Search items").fill("yogurt");
   await expect(
-    page.locator(".section-heading > span").filter({hasText: /^2 items$/}),
+    page.locator(".section-heading > span").filter({ hasText: /^2 items$/ }),
   ).toBeVisible();
   const sort = await page
       .getByLabel("Sort Items", { exact: true })

@@ -1,3 +1,4 @@
+import { detailAction } from "./editor-helpers";
 import { test, expect, type Page } from "@playwright/test";
 import { emptyRecords, categories, today } from "../../lib/until/domain";
 import { expandSection, setDate } from "./editor-helpers";
@@ -68,13 +69,11 @@ test("keeps stored date wording, secondary optional control and brand during edi
   await page.goto("/");
   await nav(page, "All");
   await page.getByRole("button", { name: /View Category sample 0/ }).click();
-  await expect(page.locator(".detail-countdown")).toContainText(
-    "Expired",
+  await expect(page.locator(".detail-countdown")).toContainText("Expired");
+  await detailAction(page, "Edit details");
+  await expect(page.getByLabel("Date type", { exact: true })).toContainText(
+    "Best before",
   );
-  await page.getByRole("button", { name: "Edit details", exact: true }).click();
-  await expect(
-    page.getByLabel("Date type", { exact: true }),
-  ).toContainText("Best before");
   await expandSection(page, "More details");
   await expect(page.getByLabel("Brand", { exact: true })).toHaveAttribute(
     "placeholder",
@@ -89,14 +88,12 @@ test("keeps stored date wording, secondary optional control and brand during edi
   ).toBe("best before");
   await page.getByRole("button", { name: "Close", exact: true }).click();
   await page.getByRole("button", { name: "Add item", exact: true }).click();
-  await expect(
-    page.getByLabel("Date type", { exact: true }),
-  ).not.toBeVisible();
+  await expect(page.getByLabel("Date type", { exact: true })).not.toBeVisible();
   await expect(page.getByLabel("Printed date", { exact: true })).toBeVisible();
   await expandSection(page, "More details");
-  await expect(
-    page.getByLabel("Date type", { exact: true }),
-  ).toContainText("Unspecified");
+  await expect(page.getByLabel("Date type", { exact: true })).toContainText(
+    "Unspecified",
+  );
   await page
     .getByLabel("Product name *", { exact: true })
     .fill("Date without wording");
@@ -146,7 +143,7 @@ test("reassigns a custom location explicitly and persists it across reload and s
   expect(item.location).toBe("Pantry");
   expect(item.notes).toBe("Keep this note");
   expect(item.printedDate).toBe("2020-01-01");
-  await page.getByRole("button", { name: "Edit details", exact: true }).click();
+  await detailAction(page, "Edit details");
   await expandSection(page, "More details");
   await page.getByLabel("Location", { exact: true }).click();
   await expect(
@@ -218,9 +215,7 @@ test("distinguishes category placeholders and emphasizes passed dates across fou
       expect(
         await expired.evaluate((el) => getComputedStyle(el).borderTopWidth),
       ).toBe("4px");
-      await expect(
-        page.getByText(/Expired.*ago/).first(),
-      ).toBeVisible();
+      await expect(page.getByText(/Expired.*ago/).first()).toBeVisible();
       if (width === 1440) {
         await page
           .getByRole("button", { name: "Show list", exact: true })

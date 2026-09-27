@@ -47,11 +47,11 @@ test("aligned grid, compact list, invariant mobile cards and expired details", a
     "unopened",
     "4 units",
   ]);
-  const edit = await page
-    .getByRole("button", { name: "Edit details", exact: true })
+  const more = await page
+    .getByRole("button", { name: "More", exact: true })
     .boundingBox();
   const actions = await page.locator(".detail-actions").boundingBox();
-  expect(Math.abs(edit!.width - actions!.width)).toBeLessThan(3);
+  expect(more!.width).toBeLessThan(actions!.width / 2);
   await page.screenshot({
     animations: "disabled",
     path: "test-results/display-detail.png",

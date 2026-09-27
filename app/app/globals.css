@@ -2151,7 +2151,7 @@ h1 {
 .section-heading { margin: 20px 0 12px; }
 .cards.as-list { max-width: none; }
 .list-quantity { display: none; }
-.card-bottom button { border: 1px solid var(--border); background: var(--secondary); color: var(--primary); border-radius: 9px; padding: 8px 10px; min-height: 40px; font-size: 13px; font-weight: 650; }
+.card-bottom button { border: 1px solid var(--border); background: var(--secondary); color: var(--primary); border-radius: 9px; padding: 8px 10px; min-height: 44px; font-size: 13px; font-weight: 650; }
 .card-bottom button:disabled { opacity: .5; }
 .historical.discarded .countdown { color: #88483f; }
 @media (min-width:761px) {
@@ -2694,3 +2694,64 @@ button.destructive-action:focus-visible { outline: 3px solid var(--ring); outlin
 .detail-actions .delete-item { color: var(--passed-ink); }
 
 .detail-actions.historical-actions button { grid-column: 1 / -1; }
+
+/* Card targets are siblings: open details, or act on one unit. */
+.card-main { transition: background-color .15s ease; }
+.card-main:hover { background: color-mix(in srgb, var(--primary) 4%, transparent); }
+.card-main:active { background: color-mix(in srgb, var(--primary) 8%, transparent); }
+.card-main:focus-visible { outline: 3px solid var(--primary); outline-offset: -4px; border-radius: inherit; }
+.card-bottom button { border-radius: 8px; padding: 8px 10px; min-height: 44px; transition: background-color .15s ease; }
+.card-bottom button:hover, .card-bottom button[data-state="open"] { background: color-mix(in srgb, var(--primary) 8%, transparent); }
+.card-bottom button:active { background: color-mix(in srgb, var(--primary) 14%, transparent); }
+.card-bottom button:focus-visible, .packaging-preview:focus-visible, .photo-pan:focus-visible { outline: 3px solid var(--primary); outline-offset: 2px; }
+.card-copy { padding-right: 0; }
+.until-actions-menu { z-index: 80; max-width: calc(100vw - 24px); min-width: 220px; background: var(--card); border-color: var(--border); color: var(--foreground); padding: 6px; }
+.until-actions-menu [role="menuitem"] { min-height: 44px; padding: 10px 12px; font-size: 15px; cursor: pointer; }
+.until-actions-menu [role="menuitem"][data-highlighted] { background: var(--secondary); color: var(--foreground); }
+.until-actions-menu [data-variant="destructive"] { color: var(--passed-ink); }
+.until-actions-menu [data-variant="destructive"][data-highlighted] { color: var(--passed-ink); background: color-mix(in srgb, var(--passed-ink) 10%, var(--card)); }
+.detail .detail-actions { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto; gap: 10px; }
+.detail .detail-actions button { grid-column: auto; min-height: 44px; padding: 10px 12px; font-size: 15px; gap: 8px; }
+.detail .detail-actions svg { width: 18px; height: 18px; flex-shrink: 0; }
+.detail .detail-actions.historical-actions { grid-template-columns: minmax(0, 1fr) auto; }
+.detail .detail-actions .actions-menu-trigger { justify-self: end; }
+.product-attribution { font-size: 13px; color: var(--muted-foreground); margin: 12px 0; }
+.product-attribution summary { cursor: pointer; padding: 6px 0; }
+.product-attribution p { margin: 8px 0; font-size: 13px; }
+.packaging-photo { min-width: 0; }
+.packaging-preview { display: block; padding: 0; width: 100%; overflow: hidden; text-align: left; background: var(--card); border-radius: 14px; }
+.packaging-preview .photo { width: 100%; height: 240px; margin: 0; border-radius: 0; }
+.packaging-preview .photo img { width: 100%; height: 100%; object-fit: cover; }
+.packaging-preview > span { display: flex; align-items: center; gap: 8px; padding: 10px 14px; font-size: 14px; }
+.packaging-preview:hover > span { background: var(--secondary); }
+.photo-viewer.modal { width: min(1100px, calc(100vw - 32px)); max-width: none; height: min(850px, calc(100dvh - var(--safe-top, 0px) - var(--safe-bottom, 0px) - 32px)); max-height: calc(100dvh - var(--safe-top, 0px) - var(--safe-bottom, 0px) - 32px); padding: 24px; display: grid; grid-template-rows: auto auto minmax(0, 1fr) auto; gap: 12px; overflow: hidden; }
+.photo-viewer [data-slot="dialog-title"] { padding-right: 52px; font-size: 24px; }
+.photo-viewer [data-slot="dialog-description"] { margin: 0; font-size: 14px; }
+.photo-pan { min-height: 0; min-width: 0; overflow: auto; overscroll-behavior: contain; background: var(--muted); border-radius: 10px; }
+.photo-pan > p { padding: 24px; }
+.photo-stage { display: flex; align-items: center; justify-content: center; }
+.photo-stage img { max-width: none; max-height: none; object-fit: contain; user-select: none; }
+.photo-pan:has(img) { cursor: grab; }
+.photo-pan:active:has(img) { cursor: grabbing; }
+.photo-zoom-controls { display: flex; align-items: center; gap: 8px; }
+.photo-zoom-controls button { min-width: 44px; min-height: 44px; padding: 8px; }
+.photo-zoom-controls svg { width: 20px; height: 20px; }
+.photo-zoom-slider { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; font-size: 14px; }
+.photo-zoom-slider input { width: 100%; min-width: 0; }
+@media (max-width: 760px) {
+  .detail .detail-actions { grid-template-columns: minmax(0, 1fr); gap: 8px; }
+  .detail .detail-actions.historical-actions { grid-template-columns: minmax(0, 1fr) auto; }
+  .detail .detail-actions button { min-height: 44px; }
+  .detail .detail-actions .actions-menu-trigger { grid-column: auto; }
+  .photo-viewer.modal { padding: 16px; }
+  .photo-viewer [data-slot="dialog-title"] { font-size: 21px; }
+  .photo-zoom-slider { flex-direction: column; gap: 0; }
+  .packaging-preview .photo { height: 200px; }
+}
+.photo-viewer.modal { display: grid !important; width: min(1100px, calc(100vw - 32px)) !important; max-width: none !important; padding: 24px !important; }
+.photo-viewer.modal [data-slot="dialog-title"] { font-size: 24px !important; margin: 0; }
+.detail .detail-actions .actions-menu-trigger { width: auto; }
+@media (max-width: 760px) { .photo-viewer.modal { padding: 16px !important; } .photo-viewer.modal [data-slot="dialog-title"] { font-size: 21px !important; } }
+.detail .detail-actions button:last-child:nth-child(odd) { grid-column: auto; }
+.photo-viewer.modal { z-index: 90; }
+.photo-viewer.modal { top: calc((100dvh + var(--safe-top, 0px) - var(--safe-bottom, 0px)) / 2); }

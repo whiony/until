@@ -1,4 +1,5 @@
-import {expandSection,setDate} from "./editor-helpers";
+import { detailAction } from "./editor-helpers";
+import { expandSection, setDate } from "./editor-helpers";
 import { test, expect } from "@playwright/test";
 // Local test harness emulates the identity asserted by Sites dispatch, not a mocked API.
 test.use({
@@ -28,7 +29,7 @@ test("real item lifecycle, reload, mobile layout and manual barcode fallback", a
   await expandSection(page, "More details");
   await page.getByLabel("Quantity", { exact: true }).fill("3");
   await expandSection(page, "After opening");
-  await page.getByLabel("Use within after opening", {exact:true}).fill("2");
+  await page.getByLabel("Use within after opening", { exact: true }).fill("2");
   await page
     .getByRole("button", { name: "Add item", exact: true })
     .last()
@@ -41,8 +42,10 @@ test("real item lifecycle, reload, mobile layout and manual barcode fallback", a
     page.getByRole("heading", { name: "Greek yogurt" }),
   ).toBeVisible();
   await page.getByRole("button", { name: "View Greek yogurt" }).click();
-  await page.getByRole("button", { name: "Open one", exact: true }).click();
-  await expect(page.locator(".detail dd").filter({ hasText: /^2 units$/ })).toBeVisible();
+  await detailAction(page, "Open one");
+  await expect(
+    page.locator(".detail dd").filter({ hasText: /^2 units$/ }),
+  ).toBeVisible();
 
   await page.getByRole("button", { name: "Close", exact: true }).click();
   await expect(
@@ -110,7 +113,9 @@ test("no fake notification enablement", async ({ page }) => {
     .getByRole("button", { name: "Check reminder availability" })
     .click();
   await expect(
-    page.getByRole("status").filter({ hasText: "Server delivery is not configured" }),
+    page
+      .getByRole("status")
+      .filter({ hasText: "Server delivery is not configured" }),
   ).toBeVisible();
 });
 test("offline shell reload and offline edit persist", async ({

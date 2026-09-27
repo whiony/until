@@ -14,13 +14,14 @@ import {
   History,
   Settings2,
   Search,
-  ArrowUpRight,
   Check,
   PackageOpen,
   Trash2,
   LayoutList,
   Download,
   BellOff,
+  MoreHorizontal,
+  ArrowUpRight,
 } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -45,6 +46,8 @@ import { Choice, Check as CheckField } from "./until-controls";
 import { SyncPanel } from "./until-sync";
 import { useVisualViewport } from "./use-visual-viewport";
 import { Photo } from "./until-photo";
+import { PackagingPhoto } from "./until-packaging-photo";
+import { ActionsMenu } from "./until-actions-menu";
 import { Editor, type EditorValue } from "./until-editor";
 import {
   emptyRecords,
@@ -340,7 +343,6 @@ export default function UntilApp() {
                     </p>
                   )}
                 </div>
-                <ArrowUpRight className="card-arrow" size={19} />
               </button>
               <div className="card-bottom">
                 {(i.status === "active" || i.quantity > 1) && (
@@ -354,28 +356,45 @@ export default function UntilApp() {
                   </span>
                 )}
                 {i.status === "active" ? (
-                  <button
-                    disabled={busy || demo || i.quantity < 1}
-                    onClick={() =>
-                      urgency(i, records.settings.soonDays, now) === "expired"
-                        ? setDetail(i.id)
-                        : action(
-                            (r) => completeUnit(r, i.id, "used"),
-                            "One unit moved to History as used",
-                          )
-                    }
-                  >
-                    {urgency(i, records.settings.soonDays, now) ===
-                    "expired" ? (
-                      <>
-                        <Search size={16} /> Review item
-                      </>
-                    ) : (
-                      <>
-                        <Check size={16} /> Mark one as used
-                      </>
-                    )}
-                  </button>
+                  urgency(i, records.settings.soonDays, now) === "expired" ? (
+                    <ActionsMenu
+                      label="Actions"
+                      accessibleLabel={`Actions for ${p.name}`}
+                      disabled={busy || demo || i.quantity < 1}
+                      actions={[
+                        {
+                          label: "Mark one as used",
+                          icon: Check,
+                          run: () =>
+                            action(
+                              (r) => completeUnit(r, i.id, "used"),
+                              "One unit moved to History as used",
+                            ),
+                        },
+                        {
+                          label: "Discard one",
+                          icon: Trash2,
+                          run: () =>
+                            action(
+                              (r) => completeUnit(r, i.id, "discarded"),
+                              "One unit moved to History as discarded",
+                            ),
+                        },
+                      ]}
+                    />
+                  ) : (
+                    <button
+                      disabled={busy || demo || i.quantity < 1}
+                      onClick={() =>
+                        action(
+                          (r) => completeUnit(r, i.id, "used"),
+                          "One unit moved to History as used",
+                        )
+                      }
+                    >
+                      <Check size={16} /> Mark one as used
+                    </button>
+                  )
                 ) : (
                   <button
                     disabled={demo}
@@ -972,6 +991,24 @@ export default function UntilApp() {
                 </div>
               )}
             </dl>
+            {selectedProduct.provenance && (
+              <details className="product-attribution">
+                <summary>Product data source</summary>
+                <p className="muted">
+                  Product details:{" "}
+                  <a
+                    href={selectedProduct.provenance.url}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    {selectedProduct.provenance.provider}
+                  </a>
+                  . Confirmed{" "}
+                  {selectedProduct.provenance.confirmedAt.slice(0, 10)}. Open
+                  Facts data: ODbL; images: CC BY-SA.
+                </p>
+              </details>
+            )}
             {selected.status === "active" &&
               (deadline(selected).date ? (
                 <p className="notice">
@@ -1004,14 +1041,7 @@ export default function UntilApp() {
               </section>
             )}
             {selected.packagingPhotoId && (
-              <>
-                <h3>Original packaging photo</h3>
-                <Photo
-                  id={selected.packagingPhotoId}
-                  category="Label"
-                  name="Original packaging label"
-                />
-              </>
+              <PackagingPhoto id={selected.packagingPhotoId} />
             )}
             {selected.recognition && (
               <details>
@@ -1019,26 +1049,11 @@ export default function UntilApp() {
                 <pre>{selected.recognition.text}</pre>
               </details>
             )}
-            {selectedProduct.provenance && (
-              <p className="muted">
-                Product details:{" "}
-                <a
-                  href={selectedProduct.provenance.url}
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  {selectedProduct.provenance.provider}
-                </a>
-                . Confirmed{" "}
-                {selectedProduct.provenance.confirmedAt.slice(0, 10)}. Open
-                Facts data: ODbL; images: CC BY-SA.
-              </p>
-            )}
             <fieldset
               className={`detail-actions ${selected.status !== "active" ? "historical-actions" : ""}`}
               disabled={demo}
             >
-              {selected.status === "active" && (
+              {selected.status === "active" ? (
                 <>
                   <button
                     className={
@@ -1057,19 +1072,6 @@ export default function UntilApp() {
                   >
                     <Check /> Mark one as used
                   </button>
-                  {!selected.openedDate && (
-                    <button
-                      disabled={busy || demo}
-                      onClick={() =>
-                        action(
-                          (r) => openUnit(r, selected.id),
-                          "One unit opened today",
-                        )
-                      }
-                    >
-                      <PackageOpen /> Open one
-                    </button>
-                  )}
                   <button
                     disabled={busy || demo}
                     onClick={() =>
@@ -1082,26 +1084,54 @@ export default function UntilApp() {
                     <Trash2 /> Discard one
                   </button>
                 </>
+              ) : (
+                <button
+                  className="primary"
+                  onClick={() => setEditor({ product: selectedProduct })}
+                >
+                  <Plus /> Add again
+                </button>
               )}
-              <button onClick={() => setEditor({ product: selectedProduct })}>
-                <Plus />{" "}
-                {selected.status === "active" ? "Add another" : "Add again"}
-              </button>
-              <button
-                className="edit-details"
-                onClick={() =>
-                  setEditor({ product: selectedProduct, item: selected })
-                }
-              >
-                Edit details
-              </button>
-              <button
-                className="delete-item"
+              <ActionsMenu
+                label="More"
+                icon={MoreHorizontal}
                 disabled={busy || demo}
-                onClick={() => setDeleteTarget(selected)}
-              >
-                <Trash2 /> Delete permanently
-              </button>
+                actions={[
+                  ...(selected.status === "active" && !selected.openedDate
+                    ? [
+                        {
+                          label: "Open one",
+                          icon: PackageOpen,
+                          run: () =>
+                            action(
+                              (r: Records) => openUnit(r, selected.id),
+                              "One unit opened today",
+                            ),
+                        },
+                      ]
+                    : []),
+                  ...(selected.status === "active"
+                    ? [
+                        {
+                          label: "Add another",
+                          icon: Plus,
+                          run: () => setEditor({ product: selectedProduct }),
+                        },
+                      ]
+                    : []),
+                  {
+                    label: "Edit details",
+                    run: () =>
+                      setEditor({ product: selectedProduct, item: selected }),
+                  },
+                  {
+                    label: "Delete permanently",
+                    icon: Trash2,
+                    destructive: true,
+                    run: () => setDeleteTarget(selected),
+                  },
+                ]}
+              />
             </fieldset>
           </DialogContent>
         </Dialog>

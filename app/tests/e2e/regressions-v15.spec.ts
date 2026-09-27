@@ -1,3 +1,4 @@
+import { detailAction } from "./editor-helpers";
 import { test, expect } from "@playwright/test";
 import { expandSection, setDate } from "./editor-helpers";
 import { emptyRecords } from "../../lib/until/domain";
@@ -52,12 +53,12 @@ test("acknowledged dates survive a category-only edit; custom selectors start em
   await page
     .getByRole("button", { name: "View Acknowledged item", exact: true })
     .click();
-  await page.getByRole("button", { name: "Edit details", exact: true }).click();
+  await detailAction(page, "Edit details");
   await page.getByLabel("Category", { exact: true }).click();
   await page.getByRole("option", { name: "Beauty", exact: true }).click();
   await page.getByRole("button", { name: "Save changes", exact: true }).click();
   await expect(page.locator(".editor")).toHaveCount(0);
-  await page.getByRole("button", { name: "Edit details", exact: true }).click();
+  await detailAction(page, "Edit details");
   for (const [label, original] of [
     ["Category", "Beauty"],
     ["Location", "Fridge"],
@@ -93,7 +94,7 @@ test("acknowledged dates survive a category-only edit; custom selectors start em
     .fill("Edit custom category");
   await page.getByRole("button", { name: "Save changes", exact: true }).click();
   await expect(page.locator(".editor")).toHaveCount(0);
-  await page.getByRole("button", { name: "Edit details", exact: true }).click();
+  await detailAction(page, "Edit details");
   await expect(page.getByLabel("Category", { exact: true })).toContainText(
     "Edit custom category",
   );
@@ -182,11 +183,9 @@ test("offline permanent deletion syncs without resurrection; shared photos and u
     await expect(page.locator(".item-card")).toHaveCount(1);
   }
   await a.setOffline(true);
-  await p.getByRole("button", { name: "Review item", exact: true }).click();
+  await p.locator(".card-main").first().click();
   await expect(p.locator(".detail-countdown")).toContainText("Expired");
-  await p
-    .getByRole("button", { name: "Delete permanently", exact: true })
-    .click();
+  await detailAction(p, "Delete permanently");
   await p
     .getByRole("alertdialog")
     .getByRole("button", { name: "Delete permanently", exact: true })
@@ -209,9 +208,7 @@ test("offline permanent deletion syncs without resurrection; shared photos and u
   await q
     .getByRole("button", { name: "View Shared photo", exact: true })
     .click();
-  await q
-    .getByRole("button", { name: "Delete permanently", exact: true })
-    .click();
+  await detailAction(q, "Delete permanently");
   await q
     .getByRole("alertdialog")
     .getByRole("button", { name: "Delete permanently", exact: true })

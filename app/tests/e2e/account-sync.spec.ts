@@ -1,3 +1,4 @@
+import { detailAction } from "./editor-helpers";
 import { expandSection, setDate } from "./editor-helpers";
 import { test, expect, type Page, type Browser } from "@playwright/test";
 const auth = (id: string) => ({
@@ -69,7 +70,7 @@ test("two independent account sessions sync creates, edits, status, offline chan
     { timeout: 16000 },
   );
   await b.getByRole("button", { name: "View Phone cream" }).click();
-  await b.getByRole("button", { name: "Edit details", exact: true }).click();
+  await detailAction(b, "Edit details");
   await b.getByLabel("Product name *").fill("Desktop cream");
   await expandSection(b, "More details");
   await b.getByLabel("Category", { exact: true }).click();
@@ -300,7 +301,7 @@ test("existing IndexedDB records migrate once, defaults remain selectable and no
   await remoteCount(page, 1);
   await all(page);
   await page.getByRole("button", { name: "View Existing custom item" }).click();
-  await page.getByRole("button", { name: "Edit details" }).click();
+  await detailAction(page, "Edit details");
   await expandSection(page, "More details");
   await page.getByLabel("Category", { exact: true }).click();
   for (const name of [
@@ -403,7 +404,7 @@ test("mobile editor, keyboard-size viewport, crop and replacement survive reload
   expect(box0!.width).toBeCloseTo(box1!.width, 0);
   await expect(page.locator(".detail.modal")).toHaveCSS("opacity", "1");
   await page.screenshot({ path: "test-results/mobile-detail.png" });
-  await page.getByRole("button", { name: "Edit details" }).click();
+  await detailAction(page, "Edit details");
   await expandSection(page, "Photos & label recognition");
   await page.getByRole("button", { name: "Crop photo", exact: true }).click();
   await page.getByRole("button", { name: "Cancel crop" }).click();
@@ -414,7 +415,7 @@ test("mobile editor, keyboard-size viewport, crop and replacement survive reload
   await page.getByRole("button", { name: "Use crop" }).click();
   await expect(page.locator(".crop-dialog")).toHaveCount(0);
   await page.getByRole("button", { name: "Save changes" }).click();
-  await page.getByRole("button", { name: "Edit details" }).click();
+  await detailAction(page, "Edit details");
   await expandSection(page, "Photos & label recognition");
   await page
     .getByLabel("Product photo", { exact: true })

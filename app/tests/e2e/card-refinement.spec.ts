@@ -124,15 +124,13 @@ test("filtered record counts, physical-unit totals, compact history and equal de
   await expect(detail.locator(".detail-notes")).toHaveCount(0);
   await expect(detail.locator("dt")).toHaveText(["Quantity"]);
   const again = detail.getByRole("button", { name: "Add again", exact: true });
-  const edit = detail.getByRole("button", {
-    name: "Edit details",
-    exact: true,
-  });
-  expect(
-    Math.abs(
-      (await again.boundingBox())!.width - (await edit.boundingBox())!.width,
-    ),
-  ).toBeLessThan(2);
+  const more = detail.getByRole("button", { name: "More", exact: true });
+  expect((await again.boundingBox())!.width).toBeGreaterThan(
+    (await more.boundingBox())!.width,
+  );
+  await expect(
+    detail.getByRole("button", { name: "Edit details" }),
+  ).toHaveCount(0);
   await page.screenshot({
     animations: "disabled",
     path: "test-results/refined-history-detail.png",
