@@ -141,6 +141,7 @@ const schema = z.object({
     }),
   }),
 });
+let maintenanceInitialized: Promise<unknown> | undefined;
 async function put(req: Request) {
   try {
     sameOrigin(req);
@@ -291,10 +292,10 @@ async function put(req: Request) {
             .run();
     if (!result.meta.changes)
       return new Response("Version changed", { status: 409 });
-    // Cleanup is retryable on the next pull if object storage is unavailable.
-    try {
-      await cleanupRemotePhotos(key, r);
-    } catch {}
+    // Deletion collection is useful immediately; ordinary edits do not list
+    // the bucket. Daily maintenance handles orphan uploads and old markers.
+    if ((r.deletions?.length || 0) > (before?.deletions?.length || 0))
+      try { await cleanupRemotePhotos(key, r); } catch {}
     return Response.json(
       { account: key, revision: expected + 1, records: r },
       { headers: { "Cache-Control": "no-store" } },
@@ -306,49 +307,76 @@ async function put(req: Request) {
 async function get(req: Request) {
   try {
     const key = await owner(req);
+    // The account is part of the validator: equal revision numbers on two
+    // different signed-in accounts must never produce a false "unchanged".
+    const current = await database()
+      .prepare("SELECT revision FROM account_records WHERE owner=?")
+      .bind(key)
+      .first<{ revision: number }>();
+    const revision = current?.revision || 0;
+    const etag = `"${key}:${revision}"`;
+    const headers = {
+      "Cache-Control": "private, no-store",
+      Vary: "Cookie",
+      ETag: etag,
+    };
+    if (req.headers.get("If-None-Match") === etag)
+      return new Response(null, { status: 304, headers });
     const row = await database()
       .prepare("SELECT payload,revision FROM account_records WHERE owner=?")
       .bind(key)
       .first<{ payload: string; revision: number }>();
-    let records = row ? JSON.parse(row.payload) : null;
-    let revision = row?.revision || 0;
-    if (!records) {
-      try {
-        await cleanupRemotePhotos(key, emptyRecords());
-      } catch {}
-    }
-    if (records) {
-      try {
-        const clean = await cleanupRemotePhotos(key, records);
-        if (JSON.stringify(clean) !== JSON.stringify(records)) {
-          const result = await database()
-            .prepare(
-              "UPDATE account_records SET revision=revision+1,payload=?,updated_at=? WHERE owner=? AND revision=?",
-            )
-            .bind(
-              JSON.stringify(clean),
-              new Date().toISOString(),
-              key,
-              revision,
-            )
-            .run();
-          if (!result.meta.changes)
-            return new Response("Version changed", { status: 409 });
-          records = clean;
-          revision++;
-        }
-      } catch {
-        /* Preserve markers and retry photo cleanup on the next sync. */
-      }
-    }
     return Response.json(
       {
         account: key,
-        revision,
-        records,
+        revision: row?.revision || 0,
+        records: row ? JSON.parse(row.payload) : null,
       },
-      { headers: { "Cache-Control": "no-store", Vary: "Cookie" } },
+      { headers: { ...headers, ETag: `"${key}:${row?.revision || 0}"` } },
     );
+  } catch (e) {
+    return failure(e);
+  }
+}
+
+// Maintenance is deliberately separate from the frequent conditional read.
+// A visible client asks for it at most once per day and retries failures.
+async function maintain(req: Request) {
+  try {
+    sameOrigin(req);
+    if (Number(req.headers.get("content-length") || 0) > 0)
+      return new Response("No body expected", { status: 400 });
+    const key = await owner(req);
+    maintenanceInitialized ||= database()
+      .prepare("CREATE TABLE IF NOT EXISTS account_maintenance (owner TEXT PRIMARY KEY NOT NULL, last_cleanup_at INTEGER NOT NULL)")
+      .run()
+      .catch((error) => { maintenanceInitialized = undefined; throw error; });
+    await maintenanceInitialized;
+    const previous = await database()
+      .prepare("SELECT last_cleanup_at FROM account_maintenance WHERE owner=?")
+      .bind(key)
+      .first<{ last_cleanup_at: number }>();
+    if (previous && Date.now() - previous.last_cleanup_at < 24 * 60 * 60 * 1000)
+      return new Response(null, { status: 204, headers: { "Cache-Control": "no-store" } });
+    const row = await database()
+      .prepare("SELECT payload,revision FROM account_records WHERE owner=?")
+      .bind(key)
+      .first<{ payload: string; revision: number }>();
+    const records = row ? JSON.parse(row.payload) : emptyRecords();
+    const cleaned = await cleanupRemotePhotos(key, records);
+    if (row && JSON.stringify(cleaned) !== JSON.stringify(records)) {
+      const result = await database()
+        .prepare("UPDATE account_records SET revision=revision+1,payload=?,updated_at=? WHERE owner=? AND revision=?")
+        .bind(JSON.stringify(cleaned), new Date().toISOString(), key, row.revision)
+        .run();
+      if (!result.meta.changes)
+        return new Response("Version changed", { status: 409 });
+    }
+    await database()
+      .prepare("INSERT INTO account_maintenance (owner,last_cleanup_at) VALUES (?,?) ON CONFLICT(owner) DO UPDATE SET last_cleanup_at=excluded.last_cleanup_at")
+      .bind(key, Date.now())
+      .run();
+    return new Response(null, { status: 204, headers: { "Cache-Control": "no-store" } });
   } catch (e) {
     return failure(e);
   }
@@ -359,5 +387,9 @@ export async function PUT(req: Request) {
 }
 
 export async function GET(req: Request) {
-  return withAccountStorage(req, () => get(req));
+  return get(req);
+}
+
+export async function POST(req: Request) {
+  return withAccountStorage(req, () => maintain(req));
 }

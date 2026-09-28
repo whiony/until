@@ -321,8 +321,12 @@ test("packaging viewer uses immutable full original bytes, fits and zooms/pans w
       request.onsuccess = () => resolve(request.result);
       request.onerror = () => reject(request.error);
     });
-    const tx = db.transaction("photos", "readwrite");
-    tx.objectStore("photos").delete(id);
+    const tx = db.transaction(["state", "photos"], "readwrite");
+    const account = await new Promise<string | undefined>((resolve) => {
+      const get = tx.objectStore("state").get("activeAccount");
+      get.onsuccess = () => resolve(get.result);
+    });
+    tx.objectStore("photos").delete(account && account !== "guest" ? `account:${account}:${id}` : id);
     await new Promise<void>((resolve) => {
       tx.oncomplete = () => resolve();
     });

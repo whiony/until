@@ -107,8 +107,9 @@ test("no fake notification enablement", async ({ page }) => {
   await page.goto("/");
   await page.getByRole("tab", { name: "Settings" }).click();
   await expect(
-    page.getByText("Notifications are not active.", { exact: false }),
+    page.getByText("Notifications are not delivered while Until is closed.", { exact: false }),
   ).toBeVisible();
+  await page.locator(".settings-reminders summary").click();
   await page
     .getByRole("button", { name: "Check reminder availability" })
     .click();

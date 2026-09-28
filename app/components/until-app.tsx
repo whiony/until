@@ -1,7 +1,8 @@
 "use client";
 import { categoryNames, locationNames } from "@/lib/until/preferences";
 import { ItemMetadata } from "./until-item-metadata";
-import { AppearanceCategories } from "./until-preferences";
+import { Settings } from "./until-settings";
+import { SyncRetryGate } from "@/lib/until/sync-retry";
 import { InlineDate } from "./until-inline-date";
 import { demoRecords, itemCount, units } from "@/lib/until/demo";
 import { useEffect, useState, useCallback, useRef } from "react";
@@ -19,8 +20,6 @@ import {
   PackageOpen,
   Trash2,
   LayoutList,
-  Download,
-  BellOff,
   MoreHorizontal,
   ArrowUpRight,
 } from "lucide-react";
@@ -43,8 +42,7 @@ import {
 import { Empty, EmptyTitle, EmptyDescription } from "@/components/ui/empty";
 import { Toaster } from "@/components/ui/sonner";
 import { toast } from "sonner";
-import { Choice, Check as CheckField } from "./until-controls";
-import { SyncPanel } from "./until-sync";
+import { Choice } from "./until-controls";
 import { useVisualViewport } from "./use-visual-viewport";
 import { Photo } from "./until-photo";
 import { PackagingPhoto } from "./until-packaging-photo";
@@ -71,12 +69,13 @@ import {
   readRecords,
   mutate,
   syncRecords,
-  exportRecords,
   deleteItem,
   type SyncState,
 } from "@/lib/until/repository";
-import { notificationService } from "@/lib/until/notifications";
 type View = "soon" | "all" | "history" | "settings";
+// One mounted shelf per tab; the repository also coalesces cross-component calls.
+let uiSyncInFlight: Promise<void> | null = null;
+const uiSyncRetry = new SyncRetryGate();
 export default function UntilApp() {
   useVisualViewport();
   const [realRecords, setRecords] = useState<Records>(emptyRecords);
@@ -92,6 +91,7 @@ export default function UntilApp() {
   const [demo, setDemo] = useState(false);
   const records = demo ? demoRecords(now) : realRecords;
   const [sync, setSync] = useState<SyncState>("pending");
+  const [syncGeneration, setSyncGeneration] = useState(0);
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("any");
   const [location, setLocation] = useState("any");
@@ -138,9 +138,18 @@ export default function UntilApp() {
       );
     }
   }, []);
-  const synchronize = useCallback(async () => {
-    setSync(await syncRecords());
-    await refresh();
+  const synchronize = useCallback((force = false) => {
+    if (uiSyncInFlight) return uiSyncInFlight;
+    if (!uiSyncRetry.canRun(Date.now(), force)) return Promise.resolve();
+    const task = (async () => {
+      const result = await syncRecords();
+      uiSyncRetry.record(result, Date.now());
+      setSync(result);
+      setSyncGeneration((value) => value + 1);
+      await refresh();
+    })();
+    uiSyncInFlight = task.finally(() => { uiSyncInFlight = null; });
+    return uiSyncInFlight;
   }, [refresh]);
   useEffect(() => {
     queueMicrotask(() => {
@@ -152,30 +161,34 @@ export default function UntilApp() {
         .catch(() =>
           toast.error("Offline installation is unavailable in this browser."),
         );
-    const tick = () => {
+    const tick = (force = false) => {
       setNow(today());
       refresh();
-      synchronize();
+      void synchronize(force);
     };
-    window.addEventListener("online", tick);
-    window.addEventListener("offline", tick);
-    window.addEventListener("focus", tick);
+    const resume = () => tick(true);
+    window.addEventListener("online", resume);
+    window.addEventListener("offline", resume);
+    window.addEventListener("focus", resume);
     const foreground = () => {
+      if (document.visibilityState === "visible") tick(true);
+    };
+    const poll = () => {
       if (document.visibilityState === "visible") tick();
     };
     document.addEventListener("visibilitychange", foreground);
     window.addEventListener("until-records", refresh);
-    const id = setInterval(foreground, 10000);
+    const id = setInterval(poll, 10000);
     queueMicrotask(() => {
-      void synchronize();
+      void synchronize(true);
     });
     return () => {
       clearInterval(id);
       document.removeEventListener("visibilitychange", foreground);
       window.removeEventListener("until-records", refresh);
-      window.removeEventListener("online", tick);
-      window.removeEventListener("offline", tick);
-      window.removeEventListener("focus", tick);
+      window.removeEventListener("online", resume);
+      window.removeEventListener("offline", resume);
+      window.removeEventListener("focus", resume);
     };
   }, [refresh, synchronize]);
   async function change(
@@ -188,7 +201,7 @@ export default function UntilApp() {
       );
     setRecords(await mutate(fn, photos));
     setSync("pending");
-    void synchronize();
+    void synchronize(true);
   }
   async function save(v: EditorValue) {
     await change((r) => {
@@ -515,6 +528,7 @@ export default function UntilApp() {
                 records={realRecords}
                 onChange={change}
                 sync={sync}
+                syncGeneration={syncGeneration}
                 retry={synchronize}
               />
             ) : (
@@ -1181,258 +1195,6 @@ export default function UntilApp() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </>
-  );
-}
-function Settings({
-  records,
-  onChange,
-  sync,
-  retry,
-}: {
-  records: Records;
-  onChange: (fn: (r: Records) => void) => Promise<void>;
-  sync: SyncState;
-  retry: () => void;
-}) {
-  const [settings, setSettings] = useState(records.settings);
-  const [message, setMessage] = useState("");
-  const [saving, setSaving] = useState(false);
-  const n = settings.notifications;
-  return (
-    <>
-      <div className="page-heading">
-        <div>
-          <p className="eyebrow">PREFERENCES</p>
-          <h1>Settings</h1>
-          <p>Manage reminders and account storage.</p>
-        </div>
-      </div>
-      <div className="settings-layout">
-        <AppearanceCategories records={records} onChange={onChange} />
-        <form
-          className="settings"
-          onSubmit={async (e) => {
-            e.preventDefault();
-            setSaving(true);
-            try {
-              await onChange((r) => {
-                r.settings.soonDays = settings.soonDays;
-                r.settings.notifications = settings.notifications;
-              });
-              setMessage("Preferences saved. Notifications are not active.");
-            } catch {
-              setMessage("Could not save. Please try again.");
-            } finally {
-              setSaving(false);
-            }
-          }}
-        >
-          <section>
-            <h2>Your Soon window</h2>
-            <label className="field">
-              <span>Show dates in the next (days)</span>
-              <input
-                type="number"
-                min={1}
-                max={90}
-                required
-                value={settings.soonDays}
-                onChange={(e) =>
-                  setSettings({ ...settings, soonDays: e.target.valueAsNumber })
-                }
-              />
-            </label>
-          </section>
-          <section>
-            <h2>
-              <BellOff /> Gentle reminders
-            </h2>
-            <p className="notice">
-              Notifications are not active. The server still needs scheduled Web
-              Push delivery. Saving preferences does not enable alerts.
-            </p>
-            <CheckField
-              label="Save my preference for a daily digest (delivery unavailable)"
-              checked={n.requested}
-              onChange={(v) =>
-                setSettings({
-                  ...settings,
-                  notifications: { ...n, requested: v },
-                })
-              }
-            />
-            <CheckField
-              label="Also remind me on the recorded date"
-              checked={n.expirationDay}
-              onChange={(v) =>
-                setSettings({
-                  ...settings,
-                  notifications: { ...n, expirationDay: v },
-                })
-              }
-            />
-            <div className="form-grid">
-              <label className="field">
-                <span>Lead time (days)</span>
-                <input
-                  type="number"
-                  required
-                  min={0}
-                  max={90}
-                  value={n.leadDays}
-                  onChange={(e) =>
-                    setSettings({
-                      ...settings,
-                      notifications: { ...n, leadDays: e.target.valueAsNumber },
-                    })
-                  }
-                />
-              </label>
-              <label className="field">
-                <span>Digest time</span>
-                <input
-                  type="time"
-                  required
-                  value={n.time}
-                  onChange={(e) =>
-                    setSettings({
-                      ...settings,
-                      notifications: { ...n, time: e.target.value },
-                    })
-                  }
-                />
-              </label>
-              <label className="field">
-                <span>Quiet hours start</span>
-                <input
-                  type="time"
-                  required
-                  value={n.quietStart}
-                  onChange={(e) =>
-                    setSettings({
-                      ...settings,
-                      notifications: { ...n, quietStart: e.target.value },
-                    })
-                  }
-                />
-              </label>
-              <label className="field">
-                <span>Quiet hours end</span>
-                <input
-                  type="time"
-                  required
-                  value={n.quietEnd}
-                  onChange={(e) =>
-                    setSettings({
-                      ...settings,
-                      notifications: { ...n, quietEnd: e.target.value },
-                    })
-                  }
-                />
-              </label>
-            </div>
-            <p className="muted">
-              Timezone: {n.timezone}. Dates on your shelf always use your
-              current local calendar day.
-            </p>
-            <button
-              type="button"
-              onClick={async () => {
-                try {
-                  const status = await notificationService.capability();
-                  setMessage(status.reason);
-                } catch (e) {
-                  setMessage((e as Error).message);
-                }
-              }}
-            >
-              Check reminder availability
-            </button>
-            <p className="muted">
-              On iPhone, use Safari → Share → Add to Home Screen. Push reminders
-              require an installed Home Screen app and your permission. We will
-              only request permission when delivery is available and you choose
-              to enable it.
-            </p>
-          </section>
-          <button type="submit" className="primary" disabled={saving}>
-            {saving ? "Saving…" : "Save preferences"}
-          </button>
-          {message && (
-            <p role="status" className="notice">
-              {message}
-            </p>
-          )}
-          <SyncPanel state={sync} retry={retry} />
-          <section>
-            <h2>Data & storage</h2>
-            <p>
-              Items and photos sync with the same signed-in account. Updates are
-              checked on opening, focus, reconnect, and every 10 seconds while
-              visible. Offline changes stay on this device until they can be
-              uploaded.
-            </p>
-            <p className="muted">
-              JSON export includes records and photo references, not photo
-              files. Existing device-only entries migrate when that device opens
-              this version. Recovery copies are kept if you choose a cloud
-              version after a conflict.
-            </p>
-            <div className="inline">
-              <button
-                type="button"
-                onClick={() =>
-                  exportRecords(true).catch(() =>
-                    setMessage("Export failed. Try again."),
-                  )
-                }
-              >
-                <Download /> Export JSON
-              </button>
-              <button type="button" onClick={retry}>
-                Retry sync
-              </button>
-              <button
-                type="button"
-                onClick={async () => {
-                  const granted = await navigator.storage?.persist?.();
-                  setMessage(
-                    granted
-                      ? "Persistent device storage granted."
-                      : "The browser manages storage automatically. Export your records regularly.",
-                  );
-                }}
-              >
-                Keep device storage
-              </button>
-            </div>
-          </section>
-          <section>
-            <h2>Product data credits</h2>
-            <p>
-              Suggestions from{" "}
-              <a href="https://world.openfoodfacts.org">Open Food Facts</a>,{" "}
-              <a href="https://world.openbeautyfacts.org">Open Beauty Facts</a>,{" "}
-              <a href="https://world.openpetfoodfacts.org">
-                Open Pet Food Facts
-              </a>
-              , and{" "}
-              <a href="https://world.openproductsfacts.org">
-                Open Products Facts
-              </a>
-              . Database:{" "}
-              <a href="https://opendatacommons.org/licenses/odbl/1-0/">ODbL</a>;
-              contents: DbCL; product images:{" "}
-              <a href="https://creativecommons.org/licenses/by-sa/3.0/">
-                CC BY-SA
-              </a>
-              . Community suggestions can be incomplete or incorrect; confirm
-              them before saving.
-            </p>
-          </section>
-        </form>
-      </div>
     </>
   );
 }

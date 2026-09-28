@@ -52,6 +52,8 @@ function NameManagement({
   const rules = location
     ? records.settings.locationRules
     : records.settings.categoryRules;
+  const customCount = names.filter((value) => !builtins.includes(value)).length;
+  const hiddenCount = (rules || []).filter((rule) => rule.hidden).length;
   const affected = edit
     ? records.items.filter(
         (i) =>
@@ -63,50 +65,14 @@ function NameManagement({
     : 0;
   return (
     <>
-      {!location && (
-        <section aria-labelledby="themes-heading">
-          <h2 id="themes-heading">Color theme</h2>
-          <p className="muted">
-            Choose a light palette for your shelf. Saved automatically on this
-            device and synced with your account.
-          </p>
-          <div className="theme-options">
-            {themes.map((theme) => (
-              <button
-                type="button"
-                key={theme}
-                data-theme={theme}
-                aria-pressed={(records.settings.theme || "green") === theme}
-                disabled={busy}
-                onClick={() =>
-                  save((r) => {
-                    r.settings.theme = theme;
-                  })
-                }
-              >
-                <span className="theme-preview" aria-hidden="true">
-                  <i />
-                  <i />
-                  <i />
-                </span>
-                {theme === "green"
-                  ? "Green"
-                  : theme === "peach"
-                    ? "Warm peach"
-                    : theme === "lavender"
-                      ? "Lavender"
-                      : "Soft blue"}
-              </button>
-            ))}
-          </div>
-        </section>
-      )}
       <section aria-labelledby={`${plural}-heading`}>
         <h2 id={`${plural}-heading`}>{title}</h2>
         <p className="muted">
           Hide built-in {plural} from new selections, or manage your custom{" "}
           {plural}. Existing items are kept.
         </p>
+        <details className="manager-details">
+          <summary>Manage {plural} <span>{builtins.length} built-in · {customCount} custom{hiddenCount ? ` · ${hiddenCount} hidden` : ""}</span></summary>
         <div className="category-list">
           {names.map((category) => {
             const builtin = builtins.includes(category);
@@ -281,6 +247,7 @@ function NameManagement({
             Add {singular}
           </button>
         </div>
+        </details>
       </section>
       {error && (
         <p role="alert" className="error">
@@ -291,12 +258,52 @@ function NameManagement({
   );
 }
 
+export function ThemeChooser(props: {
+  records: Records;
+  onChange: (fn: (r: Records) => void) => Promise<void>;
+}) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  return (
+    <div>
+      <h3>Color theme</h3>
+      <p className="muted">Changes save automatically on this device and sync with your account.</p>
+      <div className="theme-options">
+        {themes.map((theme) => (
+          <button
+            type="button"
+            key={theme}
+            data-theme={theme}
+            aria-pressed={(props.records.settings.theme || "green") === theme}
+            disabled={busy}
+            onClick={async () => {
+              setBusy(true);
+              setError("");
+              try {
+                await props.onChange((r) => { r.settings.theme = theme; });
+              } catch {
+                setError("Could not save the theme. Please try again.");
+              } finally {
+                setBusy(false);
+              }
+            }}
+          >
+            <span className="theme-preview" aria-hidden="true"><i /><i /><i /></span>
+            {theme === "green" ? "Green" : theme === "peach" ? "Warm peach" : theme === "lavender" ? "Lavender" : "Soft blue"}
+          </button>
+        ))}
+      </div>
+      {error && <p role="alert" className="error">{error}</p>}
+    </div>
+  );
+}
+
 export function AppearanceCategories(props: {
   records: Records;
   onChange: (fn: (r: Records) => void) => Promise<void>;
 }) {
   return (
-    <div className="settings preference-management">
+    <div className="organize-grid preference-management">
       <NameManagement {...props} kind="category" />
       <NameManagement {...props} kind="location" />
     </div>

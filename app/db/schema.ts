@@ -4,3 +4,4 @@ export const accountRecords=sqliteTable('account_records',{owner:text('owner').p
 export const legacyClaims=sqliteTable('legacy_claims',{device:text('device').primaryKey(),account:text('account').notNull()});
 
 export const accountStorageLeases=sqliteTable('account_storage_leases',{owner:text('owner').primaryKey(),token:text('token').notNull(),expiresAt:integer('expires_at').notNull()});
+export const accountMaintenance=sqliteTable('account_maintenance',{owner:text('owner').primaryKey(),lastCleanupAt:integer('last_cleanup_at').notNull()});

@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import {
   getSyncInfo,
-  exportRecords,
+  downloadYourData,
   adoptCloudCopy,
   type SyncState,
 } from "@/lib/until/repository";
@@ -20,26 +20,30 @@ import {
 export function SyncPanel({
   state,
   retry,
+  generation,
 }: {
   state: SyncState;
   retry: () => void;
+  generation: number;
 }) {
   const [info, setInfo] = useState<Awaited<ReturnType<typeof getSyncInfo>>>({
     lastSync: undefined,
+    lastUpload: undefined,
+    pending: false,
     conflict: undefined,
   });
   const [error, setError] = useState("");
   useEffect(() => {
     getSyncInfo().then(setInfo);
-  }, [state]);
+  }, [state, generation]);
   return (
-    <section className="sync-panel">
-      <h2>Account sync</h2>
+    <div className="sync-panel">
+      <h3>Account sync</h3>
       <p role="status">
         {state === "saved"
           ? info.lastSync
-            ? `Last checked ${new Date(info.lastSync).toLocaleTimeString("en", { hour: "2-digit", minute: "2-digit" })}. No pending changes.`
-            : "No pending changes."
+            ? `Last checked ${new Date(info.lastSync).toLocaleTimeString("en", { hour: "2-digit", minute: "2-digit" })}. Device and account copies matched at that check.`
+            : "Account and device copies matched at the last check."
           : state === "offline"
             ? "Offline. Your changes are kept here until you reconnect."
             : state === "signed-out"
@@ -50,6 +54,8 @@ export function SyncPanel({
                   ? "Checking for changes…"
                   : "Could not reach your account. Local changes are safe; we’ll retry automatically."}
       </p>
+      {info.pending && state !== "saved" && <p>Local changes are waiting to sync.</p>}
+      {info.lastUpload && <p className="muted">Last upload from this device: {new Date(info.lastUpload).toLocaleString("en")}.</p>}
       {state === "signed-out" ? (
         <a href="/signin-with-chatgpt?return_to=/" target="_top">
           Sign in with ChatGPT
@@ -65,8 +71,8 @@ export function SyncPanel({
             {info.conflict?.fields.length || 1} overlapping record(s). Download
             your local copy before choosing the cloud version.
           </p>
-          <button type="button" onClick={() => exportRecords(true)}>
-            Download local copy
+          <button type="button" onClick={() => downloadYourData().catch(() => setError("Could not download the local data archive. Reconnect and try again."))}>
+            Download local data
           </button>
           <AlertDialog>
             <AlertDialogTrigger asChild>
@@ -77,7 +83,7 @@ export function SyncPanel({
                 <AlertDialogTitle>Use the cloud version?</AlertDialogTitle>
                 <AlertDialogDescription>
                   Your current device version will be kept in recovery storage,
-                  available through Export JSON with recovery copies. The cloud
+                  available in your data archive. The cloud
                   version will become your active shelf. No cloud records will
                   be overwritten.
                 </AlertDialogDescription>
@@ -104,6 +110,6 @@ export function SyncPanel({
         </>
       )}
       {error && <p role="alert">{error}</p>}
-    </section>
+    </div>
   );
 }

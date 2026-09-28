@@ -12,6 +12,11 @@ async function settings(p: Page) {
     })
     .click();
 }
+async function manageCategories(p: Page) {
+  const details = p.locator(".settings-organize .manager-details").first();
+  if ((await details.getAttribute("open")) === null)
+    await details.locator("summary").click();
+}
 async function all(p: Page) {
   await p
     .getByRole(p.viewportSize()!.width > 760 ? "tab" : "button", {
@@ -120,6 +125,8 @@ test("two independent sessions sync category management, reassignment and offlin
   await q.goto("/");
   await settings(p);
   await settings(q);
+  await manageCategories(p);
+  await manageCategories(q);
   await p.getByLabel("New category", { exact: true }).fill("Infusions");
   await p.getByRole("button", { name: "Add category", exact: true }).click();
   await p.getByRole("button", { name: "Hide Beauty" }).click();
@@ -138,6 +145,7 @@ test("two independent sessions sync category management, reassignment and offlin
     )
     .toBe(1);
   await settings(p);
+  await manageCategories(p);
   await p.getByRole("button", { name: "Rename Infusions" }).click();
   await p.getByLabel("New category name").fill("Tea");
   await p.getByRole("button", { name: "Save category name" }).click();
@@ -170,11 +178,12 @@ test("two independent sessions sync category management, reassignment and offlin
   await expect(p.locator("html")).toHaveAttribute("data-theme", "blue");
   await p.reload();
   await settings(p);
+  await manageCategories(p);
   await expect(p.locator("html")).toHaveAttribute("data-theme", "blue");
   await expect(p.getByRole("button", { name: "Show Beauty" })).toBeVisible();
   await p.getByLabel("Show dates in the next (days)").fill("12");
   await p
-    .getByRole("button", { name: "Save preferences", exact: true })
+    .getByRole("button", { name: "Save Soon window", exact: true })
     .click();
   await expect(p.locator("html")).toHaveAttribute("data-theme", "blue");
   await a.setOffline(false);
@@ -183,6 +192,7 @@ test("two independent sessions sync category management, reassignment and offlin
   });
   await q.reload();
   await settings(q);
+  await manageCategories(q);
   await expect(q.getByRole("button", { name: "Show Beauty" })).toBeVisible();
   await all(q);
   await q.getByRole("button", { name: "View Tea packet" }).click();

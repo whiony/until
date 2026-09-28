@@ -112,6 +112,7 @@ test("reassigns a custom location explicitly and persists it across reload and s
   const original = await seed(page);
   await page.goto("/");
   await nav(page, "Settings");
+  await page.locator(".settings-organize .manager-details").last().locator("summary").click();
   const section = page.getByRole("region", { name: "Locations", exact: true });
   await section
     .getByRole("button", { name: "Rename Cupboard", exact: true })

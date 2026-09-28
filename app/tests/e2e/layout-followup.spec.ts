@@ -366,7 +366,7 @@ test("row-sized grids, coherent placeholders, aligned list controls and full-wid
     }
     await view(page, "Settings");
     const main = (await page.locator(".workspace main").boundingBox())!;
-    const layout = (await page.locator(".settings-layout").boundingBox())!;
+    const layout = (await page.locator(".settings-grid").boundingBox())!;
     expect(layout.x).toBeGreaterThan(main.x);
     expect(layout.width).toBeGreaterThan(main.width * 0.85);
     for (const theme of ["Green", "Warm peach", "Lavender", "Soft blue"]) {
@@ -388,7 +388,7 @@ test("row-sized grids, coherent placeholders, aligned list controls and full-wid
         ).toHaveCSS("background-color", accent);
       }
       const contrast = await page
-        .locator(".settings .muted")
+        .locator(".settings-page .muted")
         .first()
         .evaluate((el) => {
           const luminance = (rgb: string) => {
@@ -411,7 +411,7 @@ test("row-sized grids, coherent placeholders, aligned list controls and full-wid
       expect(contrast).toBeGreaterThanOrEqual(4.5);
       expect(
         await page
-          .locator(".settings-layout")
+          .locator(".settings-grid")
           .evaluate((el) => el.scrollWidth <= el.clientWidth),
       ).toBe(true);
       await page.screenshot({
